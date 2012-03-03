@@ -1,0 +1,33 @@
+running MCMC using tempo
+
+python runmcmc.py --help
+
+Usage: runmcmc.py [options]
+
+Options:
+  -h, --help            show this help message and exit
+  -f PARFILE, --parfile=PARFILE
+                        par file
+  -t TOAFILE, --timfile=TOAFILE
+                        toa file
+  -i STEPS, --iter=STEPS
+                        number of steps
+  -m MIXING, --mixing=MIXING
+                        number of mixing steps
+  -p PARAL, --parallel=PARAL
+                        number of parallel processes
+  -s SEED, --seed=SEED  random number seed
+  -z STEPSIZE, --stepsize=STEPSIZE
+                        step size
+
+After the MCMC is done, use plotmc.py to plot the result for any two parameters.
+example:
+python plotmc.py PX PBDOT
+
+tempo.py: codes that deal with parsing parfile and toafile
+Coordinate.py: codes that deal with RA and Dec
+ProgressBar.py: codes that show a processe bar (from internet).
+
+
+Weiwei Zhu
+2012-03-01
