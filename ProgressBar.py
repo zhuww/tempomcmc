@@ -1,4 +1,4 @@
-import sys
+import sys, time
 class progressBar:
     """ Creates a text-based progress bar. Call the object with the `print'
         command to see the progress bar, which looks something like this:
@@ -8,7 +8,7 @@ class progressBar:
         You may specify the progress bar's width, min and max values on init.
     """
 
-    def __init__(self, minValue = 0, maxValue = 100, totalWidth=80):
+    def __init__(self, minValue = 0, maxValue = 100, totalWidth=65):
         self.progBar = "[]"   # This holds the progress bar string
         self.min = minValue
         self.max = maxValue
@@ -16,6 +16,7 @@ class progressBar:
         self.width = totalWidth
         self.amount = 0       # When amount == max, we are 100% done
         self.updateAmount(0)  # Build progress bar string
+        self.start = time.time()
 
     def updateAmount(self, newAmount = 0):
         """ Update the progress bar with the new amount (with min and max
@@ -24,6 +25,7 @@ class progressBar:
         if newAmount < self.min: newAmount = self.min
         if newAmount > self.max: newAmount = self.max
         self.amount = newAmount
+        self.now = time.time()
 
         # Figure out the new percent done, round to an integer
         diffFromMin = float(self.amount - self.min)
@@ -52,6 +54,18 @@ class progressBar:
         # slice the percentage into the bar
         self.progBar = ''.join([self.progBar[0:percentPlace], percentString,
                                 self.progBar[percentPlace+len(percentString):] ])
+        #add estimated time left
+        #try:
+        if not float(self.amount-self.min) == 0.:
+            esl = float(self.max - self.amount)/(self.amount-self.min) * (self.now - self.start) 
+            hours = int(esl / 3600)
+            minutes = int((esl % 3600)/60)
+            seconds = int(esl - hours*3600 - minutes*60)
+        else:
+            hours = 0
+            minutes = 0
+            seconds = 0
+        self.progBar += 'ETL:%ih%im%is' % (hours, minutes, seconds)
 
     def __str__(self):
         return str(self.progBar)
