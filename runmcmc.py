@@ -45,21 +45,14 @@ def randomnew(pf, stepsize): #special for 1713
 
 def probcal(pf):
     pf.write()
-    m2 = float(str(pf.M2[0]))
-    Omega = float(str(pf.PAASCNODE))
-    sini = float(str(pf.SINI[0]))
-    if m2 <= 0 or Omega > 360 or Omega < -360 or sini > 1.:
-        return 0
-    #sini = sqrt(1 - cosi**2)
-    #xdot = -1.* fac * x * mu * (cosi/sini) * sin((thetamu-Omega)*twopi/360.)
-    #touchparfile(parfile, NITS=1, PAASCNODE=Omega, SINI = sini, M2 = m2, XDOT = xdot)
+    #m2 = float(str(pf.M2[0]))
+    #Omega = float(str(pf.PAASCNODE))
+    #sini = float(str(pf.SINI[0]))
+    #if m2 <= 0 or Omega > 360 or Omega < -360 or sini > 1.:
+        #return 0
     chisq, dof = tempofit(parfile, toafile = toafile, pulsefile = pulsefile)
     pf.chisq = chisq
-    #print dof, chisq
-    #print parfile, toafile
-    #print chisq, smallestchisq
-    #if chisq >= 999999999.:return 0
-    #smallestchisq = 308.28
+    if chisq < smallestchisq: smallestchisq = chisq
     try:
         return exp((smallestchisq - chisq)/2.) #Ingrid/Paul?
     except OverflowError:
@@ -221,7 +214,7 @@ def mcmc(Chain, runtime, MarkovChain, mixingtime=1000, stepsize=1, seed=0 ):
     #else:
     plist = [x for x in pf.manifest if x in pf.parameters.keys() if not x.startswith('DMX') and not x.startswith('JUMP') and not x in ['RAJ', 'DECJ']]
 
-    dit = {'BEST':[pf.__dict__[p][0] for p in plist] + [pf.PAASCNODE, chisq], 'parfile':pf.parfile, 'parameters':plist + ['PAASCNODE', 'chisq']}
+    dit = {'BEST':[pf.__dict__[p][0] for p in plist] + [ chisq], 'parfile':pf.parfile, 'parameters':plist + [ 'chisq']}
     pickle.dump(dit, open('%s/bestpar.p' % cwd, 'w', 0), protocol=2)
     p0 = probcal(pf)
     p = p0
@@ -271,7 +264,7 @@ def mcmc(Chain, runtime, MarkovChain, mixingtime=1000, stepsize=1, seed=0 ):
             del TC
         if p1 > p0:
             if c > mixingtime:
-                Chain.Chain.append([npf.__dict__[p][0] for p in plist] + [npf.PAASCNODE, npf.chisq])
+                Chain.Chain.append([npf.__dict__[p][0] for p in plist] + [ npf.chisq])
             pf = npf
             p0 = p1
             if p1 > p:
@@ -279,19 +272,19 @@ def mcmc(Chain, runtime, MarkovChain, mixingtime=1000, stepsize=1, seed=0 ):
                 #if 'PAASCNODE' in plist:
                     #dict['BEST'] = [pf.__dict__[p][0] for p in plist[:-1]] + [pf.__dict__[p] for p in plist[-1:]] + [npf.chisq]
                 #else:
-                dit['BEST'] = [npf.__dict__[p][0] for p in plist] + [npf.PAASCNODE,  npf.chisq]
+                dit['BEST'] = [npf.__dict__[p][0] for p in plist] + [ npf.chisq]
                 pickle.dump(dit, open('%s/bestpar.p' % cwd, 'wb', 0), protocol=2)
         else:
             t = uniform(0,1,1)[0]
             if t < p1/p0:
                 if c > mixingtime:
-                    Chain.Chain.append([npf.__dict__[p][0] for p in plist] + [npf.PAASCNODE, npf.chisq])
+                    Chain.Chain.append([npf.__dict__[p][0] for p in plist] + [ npf.chisq])
                 #print npf.M2[0], npf.chisq
                 pf = npf
                 p0 = p1
             else:
                 if c > mixingtime:
-                    Chain.Chain.append([pf.__dict__[p][0] for p in plist] + [pf.PAASCNODE, npf.chisq])
+                    Chain.Chain.append([pf.__dict__[p][0] for p in plist] + [ npf.chisq])
     #print  MarkovChain
     #print best
     #print '\n%d points added to the Chain.' % len(Chain.Chain)

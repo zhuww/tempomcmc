@@ -20,17 +20,26 @@ Msun = 1.98892e30
 c = 2.99792458e8
 twopi = 6.283185307179586
 fac = 1.536e-16 
-im2 = plist.index('M2')
-ipb = plist.index('PB')
-isini = plist.index('SINI')
-ia = plist.index('A1')
+
+try:
+    im2 = plist.index('M2');
+    M2 = np.array([float(p[im2])*Msun for p in MarkovChain])
+    M1 = (Pb/2/pi*sqrt(G*(M2*SINI)**3/a**3)-M2)/Msun
+    M2 = M2/Msun
+except:pass
+try:
+    ipb = plist.index('PB')
+    Pb = np.array([float(p[ipb])*secperday for p in MarkovChain])
+except:pass
+try:
+    isini = plist.index('SINI')
+    SINI = np.array([float(p[isini]) for p in MarkovChain])
+except:pass
+try:
+    ia = plist.index('A1')
+    a = np.array([float(p[ia])*c for p in MarkovChain])
+except:pass
 ichisq = plist.index('chisq')
-M2 = np.array([float(p[im2])*Msun for p in MarkovChain])
-Pb = np.array([float(p[ipb])*secperday for p in MarkovChain])
-SINI = np.array([float(p[isini]) for p in MarkovChain])
-a = np.array([float(p[ia])*c for p in MarkovChain])
-M1 = (Pb/2/pi*sqrt(G*(M2*SINI)**3/a**3)-M2)/Msun
-M2 = M2/Msun
 chisq = [p[ichisq] for p in MarkovChain]
 bestidx = chisq.index(min(chisq))
 
