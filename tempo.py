@@ -3,7 +3,7 @@
 #import numpy, os
 #from numpy import mean, std, var, array, double, angle
 from math import *
-from fileio import *
+#from fileio import *
 #from SaveLoadable import MetaSaveLoader
 #from decimal import *
 #from numpy import float64 as __Decimal
@@ -1458,13 +1458,17 @@ class PARfile(object):
                 for i in range(len(self.manifest)):
                     par = self.manifest[i]
                     if not par.find('JUMP') == -1:
-                        j = par.split('_')[-1]
-                        newjumppar = 'JUMP -jump ' + j
+                        if not par.find(' -') == -1:
+                            newjumppar = par
+                        else:
+                            j = par.split('_')[-1]
+                            newjumppar = 'JUMP -jump ' + j
                         self.manifest[i] = newjumppar
-                        self.__dict__[newjumppar] = self.__dict__[par]
-                        del self.__dict__[par]
-                        self.parameters[newjumppar] = self.parameters[par]
-                        del self.parameters[par]
+                        if not newjumppar == par:
+                            self.__dict__[newjumppar] = self.__dict__[par]
+                            del self.__dict__[par]
+                            self.parameters[newjumppar] = self.parameters[par]
+                            del self.parameters[par]
                 if self.BINARY == 'DD' and self.__dict__.has_key('PAASCNODE'):
                     self.BINARY = 'T2'
                     self.ECC = self.E
@@ -1678,7 +1682,7 @@ class model(PARfile):
         self.prefitres= data[:]['prefit_sec']*1.e6
         self.prefitphase= self.prefitres*self.phase/self.res
         self.weight = data[:]['weight']
-        from fileio import readcol
+        #from fileio import readcol
         npulse= np.genfromtxt(tmppulsefile, dtype='int')
         #npulse= readcol(tmppulsefile, 0)
         self.toafile.npulse = npulse
@@ -2049,7 +2053,7 @@ class model(PARfile):
         return ax                
 
 
-    def average(self, groups='', laspe=0.5):
+    def average(self, groups='', lapse=0.5):
         """
         Performing the daily-average, 
         arguments: groups = [list of groups one wants to average] (Default all groups)
@@ -2088,7 +2092,7 @@ class model(PARfile):
             self.aveerr[key] = []
             for i in [x[1] for x in toagrp[1:]]:
                 t = toa[i]
-                if abs(t - grpkey) <= laspe:
+                if abs(t - grpkey) <= lapse:
                     subgrp[grpkey].append(i)
                 else:
                     grpkey = t
@@ -2143,4 +2147,26 @@ class model(PARfile):
             self.avewrms[key] = _wrms(self.averes[key],self.aveerr[key])
             self.mediansigma[key] = np.median(self.aveerr[key])
 
+def parseerror(val, err):
+    if not type(val) in [Decimal, __Decimal]:
+        val = __Decimal(str(val))
+    if not type(err) in [Decimal, __Decimal]:
+        err = __Decimar(str(err))
+    s, d ,e = err.as_tuple()
+    if int(d[0]) == 1:# and int(d[1]) >= 5:
+    #if int(d[0]) == 1 and not int(d[1]) == 0:
+    #if int(d[0]) == 1: #and int(d[1]) >= 5:
+        errdig = Decimal((s,d[:2],e+len(d)-2))
+        errstr = Decimal((0, d[:2], 0))
+        val = str(val.quantize(errdig))
+    else:
+        errdig = Decimal((s,d[:1],e+len(d)-1))
+        errstr = Decimal((0, d[:1], 0)) 
+        val = str(val.quantize(errdig))
+    if not val.find('E') == -1: 
+        v,e = val.split('E')
+        result = r'$%s(%s)\times10^{%s}$' % (v,errstr, e)
+    else:
+        result = r'%s(%s)' % (val,errstr)
+    return result
 
