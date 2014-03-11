@@ -1353,7 +1353,35 @@ class PARfile(object):
                 dd,mm,ss = new.__dict__[p][0].split(':')
                 #ss = str(Decimal(ss) + Decimal(str(err[i]*float(str(new.__dict__[p][1]))/self.Nfac)))
                 #ss = str(Decimal(ss) + Decimal(repr(err[i]*self.err[i]/self.Nfac)))
-                ss = str(Decimal(ss) + Decimal(repr(err[i]*self.err[i]/self.Nfac*stepsize)))
+                #ss = str(Decimal(ss) + Decimal(repr(err[i]*self.err[i]/self.Nfac*stepsize)))
+                d,m,s = Decimal(dd), Decimal(mm), Decimal(ss)
+                news = s + Decimal(repr(err[i]*self.err[i]/self.Nfac*stepsize))
+                if news < 0:
+                    while news < 0:
+                        news += 60
+                        m -= 1
+                        if m < 0:
+                            m += 60
+                            d -= 1
+                            if d < 0 and p == 'RAJ':
+                                d += 24
+                elif news > 60:
+                    while news > 60:
+                        news -= 60
+                        m += 1
+                        if m > 60:
+                            m -= 60
+                            d += 1
+                            if d > 24 and p == 'RAJ':
+                                d = d % 24
+                            if d > 90 and p == 'DECJ':
+                                d = 180 - d
+                                """need to change the RAJ hour value hh to hh+12 % 24"""
+                else:pass
+                ds, fs = str(news).split('.')
+                dd = str(d).zfill(2)
+                mm = str(m).zfill(2)
+                ss = str(ds).zfill(2)+'.'+fs
                 new.__dict__[p][0] = ':'.join([dd,mm,ss])
             elif p == 'SINI':
                 pass
