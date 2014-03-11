@@ -44,6 +44,7 @@ def randomnew(pf, stepsize): #special for 1713
     return pf
 
 def probcal(pf):
+    global smallestchisq
     pf.write()
     #m2 = float(str(pf.M2[0]))
     #Omega = float(str(pf.PAASCNODE))
