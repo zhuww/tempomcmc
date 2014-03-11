@@ -1376,7 +1376,7 @@ class PARfile(object):
                                 d = d % 24
                             if d > 90 and p == 'DECJ':
                                 d = 180 - d
-                                """need to change the RAJ hour value hh to hh+12 % 24"""
+                                raise NotImplemented, """need to change the RAJ hour value hh to hh+12 % 24"""
                 else:pass
                 ds, fs = str(news).split('.')
                 dd = str(d).zfill(2)
