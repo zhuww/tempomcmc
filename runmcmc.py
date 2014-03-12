@@ -52,6 +52,7 @@ def probcal(pf):
     #if m2 <= 0 or Omega > 360 or Omega < -360 or sini > 1.:
         #return 0
     chisq, dof = tempofit(parfile, toafile = toafile, pulsefile = pulsefile)
+    if dof == 13722:sys.exit(0)
     pf.chisq = chisq
     if chisq < smallestchisq: smallestchisq = chisq
     try:
