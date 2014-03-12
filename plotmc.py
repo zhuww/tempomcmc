@@ -22,12 +22,6 @@ twopi = 6.283185307179586
 fac = 1.536e-16 
 
 try:
-    im2 = plist.index('M2');
-    M2 = np.array([float(p[im2])*Msun for p in MarkovChain])
-    M1 = (Pb/2/pi*sqrt(G*(M2*SINI)**3/a**3)-M2)/Msun
-    M2 = M2/Msun
-except:pass
-try:
     ipb = plist.index('PB')
     Pb = np.array([float(p[ipb])*secperday for p in MarkovChain])
 except:pass
@@ -38,6 +32,12 @@ except:pass
 try:
     ia = plist.index('A1')
     a = np.array([float(p[ia])*c for p in MarkovChain])
+except:pass
+try:
+    im2 = plist.index('M2');
+    M2 = np.array([float(p[im2])*Msun for p in MarkovChain])
+    M1 = (Pb/2/pi*sqrt(G*(M2*SINI)**3/a**3)-M2)/Msun
+    M2 = M2/Msun
 except:pass
 ichisq = plist.index('chisq')
 chisq = [p[ichisq] for p in MarkovChain]
