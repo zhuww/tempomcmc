@@ -1,4 +1,4 @@
-from datatools.tempo import *
+from tempo import *
 import cPickle as pickle
 
 
