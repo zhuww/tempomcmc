@@ -43,6 +43,8 @@ ichisq = plist.index('chisq')
 chisq = [p[ichisq] for p in MarkovChain]
 bestidx = chisq.index(min(chisq))
 
+print plist
+
 if __name__ == '__main__':
 #def plotpar(par1, par2)
     #par1 = sys.argv[1]
@@ -65,7 +67,6 @@ if __name__ == '__main__':
         else:
             i = plist.index(par)
             results.append(np.array([float(x[i]) for x in MarkovChain]))
-
 
 
 if len(results) == 2:

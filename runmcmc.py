@@ -214,7 +214,8 @@ def mcmc(Chain, runtime, MarkovChain, mixingtime=1000, stepsize=1, seed=0 ):
         #plist = [x for x in pf.manifest if x in pf.parameters.keys()] + ['PAASCNODE']
         #dict = {'BEST':[pf.__dict__[p][0] for p in plist[:-1]] + [pf.__dict__[p] for p in plist[-1:]], 'parfile':pf.parfile, 'parameters':plist + ['chisq']}
     #else:
-    plist = [x for x in pf.manifest if x in pf.parameters.keys() if not x.startswith('DMX') and not x.startswith('JUMP') and not x in ['RAJ', 'DECJ']]
+    #plist = [x for x in pf.manifest if x in pf.parameters.keys() if not x.startswith('DMX') and not x.startswith('JUMP') and not x in ['RAJ', 'DECJ']]
+    plist = [x for x in pf.manifest if x in pf.parameters.keys() ]
 
     dit = {'BEST':[pf.__dict__[p][0] for p in plist] + [ chisq], 'parfile':pf.parfile, 'parameters':plist + [ 'chisq']}
     pickle.dump(dit, open('%s/bestpar.p' % cwd, 'w', 0), protocol=2)
