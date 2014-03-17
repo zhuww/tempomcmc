@@ -33,7 +33,7 @@ for k in plist:
         ds, fs = ss.split('.')
         pf.__dict__[k] = (firstval+':'+ds.zfill(2)+'.'+fs, Decimal(str(e)))
 
-    elif k in ['F0', 'F1']:
+    elif k in ['F0', 'F1', 'T0']:
         idx = plist.index(k)
         val = np.array([(p[idx]) for p in MarkovChain])
         m = sum(val)/len(val) 
