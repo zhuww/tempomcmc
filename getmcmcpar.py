@@ -69,15 +69,16 @@ pf.__dict__[k] = (Decimal(str(KIN.mean())), Decimal(str(np.std(KIN))))
 pf.parameters[k] = '1'
 pf.manifest.append(k)
 
-pf.KOM = pf.PAASCNODE
-pf.parameters['KOM'] = '1'
-pf.manifest.append('KOM')
 #for p in set(plist) & set(pf.parameters):
     #idp = plist.index(p)
     #pf.__dict__[p][0] = best[idp]
 
-p = 'PAASCNODE'
-idp = plist.index(p)
-pf.__dict__[p] = best[idp]
+if 'PAASCNODE' in plist:
+    pf.KOM = pf.PAASCNODE
+    pf.parameters['KOM'] = '1'
+    pf.manifest.append('KOM')
+    p = 'PAASCNODE'
+    idp = plist.index(p)
+    pf.__dict__[p] = best[idp]
 
 pf.write('mcmcresult.par')
