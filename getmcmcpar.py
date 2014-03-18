@@ -33,17 +33,18 @@ for k in plist:
         ds, fs = ss.split('.')
         pf.__dict__[k] = (firstval+':'+ds.zfill(2)+'.'+fs, Decimal(str(e)))
 
-    elif k in ['F0', 'F1', 'T0']:
+    #elif k in ['F0', 'F1', 'T0']:
+    else:
         idx = plist.index(k)
         val = np.array([(p[idx]) for p in MarkovChain])
         m = sum(val)/len(val) 
         var = [float(x) for x in val - m]
         e = np.std(var)
         pf.__dict__[k] = (m, Decimal(str(e)))
-    else:
-        idx = plist.index(k)
-        val = np.array([float(p[idx]) for p in MarkovChain])
-        pf.__dict__[k] = (Decimal(str(val.mean())), Decimal(str(np.std(val))))
+    #else:
+        #idx = plist.index(k)
+        #val = np.array([float(p[idx]) for p in MarkovChain])
+        #pf.__dict__[k] = (Decimal(str(val.mean())), Decimal(str(np.std(val))))
 
 im2 = plist.index('M2')
 ipb = plist.index('PB')
