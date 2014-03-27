@@ -1694,7 +1694,13 @@ class model(PARfile):
         self.chisq = chisq 
         self.dof = dof
         #try:
-        self.newpar = PARfile(self.psrname + '.par')
+        try:
+            self.newpar = PARfile(self.psrname + '.par')
+        except:
+            class dummy():
+                parfile = ''
+            self.newpar = dummy()
+            self.newpar.parfile = self.psrname+'.par'
         #except IndexError:
             #print self.parfile
             #print self.toafile.toafile
@@ -1952,11 +1958,11 @@ class model(PARfile):
                 "error":'error',
                 "freq":"Frequency (MHz)",
                 "freqency":"Frequency (MHz)",
-                "ophase":"Orbital Phase",
-                "res":r'residual (${\rm \mu}$s)',
-                "residual":r'residual (${\rm \mu}$s)',
-                "averes":r'averaged residual (${\rm \mu}$s)',
-                "aveerr":r'averaged erro (${\rm \mu}$s)',
+                "ophase":"Orbital phase",
+                "res":r'Residual (${\rm \mu}$s)',
+                "residual":r'Residual (${\rm \mu}$s)',
+                "averes":r'Averaged residual (${\rm \mu}$s)',
+                "aveerr":r'Averaged erro (${\rm \mu}$s)',
                 "post phase":'postfit phase',
                 "prefit":r'prefit residual (${\rm \mu}$s)',
                 "DMX":r'Delta DM (pc cm$^{-3}$)',
