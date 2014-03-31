@@ -1938,7 +1938,7 @@ class model(PARfile):
             else:pass
         plt.show()
 
-    def plot(self, Xlabel, Ylabel, groups=None, colors=None, ax=None, fig=None, LegendOn=False, LegendLabels=None, **kwargs):
+    def plot(self, Xlabel, Ylabel, groups=None, colors=None, ax=None, fig=None, LegendOn=False, LegendLabels=None, NoZeroLine=False, **kwargs):
         """ploting routine, 
         possible X-axis: number, date, mjd, ophase, freq 
         possilbe Y-axis: err, res, averes, prefit, DMX 
@@ -2088,7 +2088,8 @@ class model(PARfile):
             Xlimit[0] = min(min(X), Xlimit[0])
             Xlimit[1] = max(max(X), Xlimit[1])
         #ax.plot(Xlimit,[0.,0.],'k--')
-        ax.axhline(y=0, color='k', linestyle='--')
+        if not NoZeroLine:
+            ax.axhline(y=0, color='k', linestyle='--')
         ax.set_xlabel(labeldict[Xlabel])
         ax.set_ylabel(labeldict[Ylabel])
         if LegendOn:
