@@ -7,20 +7,21 @@ import decimal
 from tools.Coordinate import RA, Dec
 
 
-secperyear = 3600*24*365
+secperyear = 3600*24*365.24218967
 secperday = 3600 * 24
 PI = np.pi
 
 def M1(pf):
     G = float(6.673e-11)
     Msun = float(1.98892e30)
+    Tsun = float(4.925490947)
     c = float(2.99792458e8)
-    m2 = float(pf.M2[0])*Msun
+    m2 = float(pf.M2[0])
     I = float(pf.KIN[0])/180*np.pi
     Pb = float(pf.PB[0])*secperday
-    a = float(pf.A1[0])*c
+    a = float(pf.A1[0])
     #result = sqrt(930.998*m2**3*Pb**2/a**3) - m2
-    return (Pb/2/PI*(sqrt(G*(m2*sin(I))**3/a**3))-m2)/Msun
+    return (Pb/2/PI*(sqrt(Tsun*(m2*sin(I))**3/a**3))-m2)
 
 def B(pf):
     return 3.2e19*np.sqrt(np.abs(float(pf.F1[0]/pf.F0[0]**3)))
@@ -138,7 +139,7 @@ parameter.append(r'\textit{Fixed Parameters}')
 value.append('')
 
 for k in Fixed:
-    parameter.append(Derived[k])
+    parameter.append(Fixed[k])
     try:
         value.append(parseerror(*m.__dict__[k]))
     except:

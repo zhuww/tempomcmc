@@ -1938,7 +1938,7 @@ class model(PARfile):
             else:pass
         plt.show()
 
-    def plot(self, Xlabel, Ylabel, groups=None, colors=None, ax=None, fig=None, LegendOn=False, LegendLabels=None, NoZeroLine=False, **kwargs):
+    def plot(self, Xlabel, Ylabel, groups=None, colors=None, ax=None, fig=None, LegendOn=False, LegendLabels=None, LegendLoc=2, NoZeroLine=False, **kwargs):
         """ploting routine, 
         possible X-axis: number, date, mjd, ophase, freq 
         possilbe Y-axis: err, res, averes, prefit, DMX 
@@ -2094,9 +2094,9 @@ class model(PARfile):
         ax.set_ylabel(labeldict[Ylabel])
         if LegendOn:
             if LegendLabels == None:
-                legend([subplots[g] for g in groups], [g for g in groups], loc=2, numpoints=1)
+                legend([subplots[g] for g in groups], [g for g in groups], loc=LegendLoc, numpoints=1)
             else:
-                legend([subplots[g] for g in groups], LegendLabels, loc=2, numpoints=1)
+                legend([subplots[g] for g in groups], LegendLabels, loc=LegendLoc, numpoints=1)
         return ax                
 
 
