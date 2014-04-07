@@ -7,7 +7,7 @@ import decimal
 from tools.Coordinate import RA, Dec
 
 
-secperyear = 3600*24*365.24218967
+secperyear = 3600*24*Decimal('365.24218967')
 secperday = 3600 * 24
 PI = np.pi
 
