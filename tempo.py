@@ -278,6 +278,8 @@ class TOAfile(object):
             SKIPflag = False
             PHASEJUMPFlag = False
             for l in lines:
+                l = l.strip()
+                l = l.strip(' ')
                 s =l.strip().find('INCLUDE')
                 if len(l) == 0:pass
                 elif l[0] == 'C'  or l[0] == '#':
