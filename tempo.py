@@ -421,20 +421,25 @@ class TOAfile(object):
                 #jump = toa.flags['jump']
             info = 'Untaged'
             jump = 0
+            if 'i' in toa.flags:
+                info = toa.flags['i']
+            if toa.flags.has_key('padd'):
+                phase = float(toa.flags['padd'])
+                if phasegroups.has_key(info):
+                    if not phasegroups[info] == phase:
+                        print "different phase jump for the same info group %s" % info;
+                        print toa.flags
+                        raise Error
+                else:
+                    phasegroups[info] = phase
             for key in toa.flags:
                 if key == 'i':
-                    info = toa.flags['i']
+                    pass
                 elif key == 'jump':
                     jump = toa.flags['jump']
                 elif key == 'padd':
-                    phase = float(toa.flags['padd'])
-
-                elif toa.flags.has_key('padd'):
-                    phase = float(toa.flags['padd'])
-                    if phasegroups.has_key(info):
-                        if not phasegroups[info] == phase:raise "different phase jump for the same info group %s" % info
-                    else:
-                        phasegroups[info] = phase
+                    #phase = float(toa.flags['padd'])
+                    pass
                 else:
                     keyword = '-'+key+' '+str(toa.flags[key])
                     if othergroups.has_key(keyword):
