@@ -163,7 +163,19 @@ class TOA(object):
                     value = int(m.group('value'))
                 except:
                     value = str(m.group('value'))
-                self.flags[par] = value
+                if par in self.flags:
+                    if par == 'to':
+                        self.flags['to'] = str(float(self.flags['to']) + float(value))
+                    elif par == 'f':
+                        pass
+                    else:
+                        if self.flags[par] == value:
+                            pass
+                        else:
+                            print 'duplicated flags in command line (%s %s) and in toa line (%s %s)' % (par, self.flags[par], par, value)
+                            raise Error
+                else:
+                    self.flags[par] = value
             self.info.append(tags)
             self.DMcorr = Decimal(0)
 
@@ -185,8 +197,8 @@ class TOA(object):
             TOAsigma = sqrt(TOAsigma**2 + self.flags['EQUAD']**2)
         if self.flags.has_key('EFAC'):
             TOAsigma = Decimal(TOAsigma) * self.flags['EFAC']
-        if self.flags.has_key('to'):
-            ActualTOA = self.TOA + Decimal(self.flags['to'])/secperday
+        #if self.flags.has_key('to'):
+            #ActualTOA = self.TOA + Decimal(self.flags['to'])/secperday
         else:
             ActualTOA = self.TOA
 
@@ -224,13 +236,12 @@ class TOA(object):
             TOAsigma = sqrt(TOAsigma**2 + self.flags['EQUAD']**2)
         if self.flags.has_key('EFAC'):
             TOAsigma = Decimal(TOAsigma) * self.flags['EFAC']
-        if self.flags.has_key('to'):
-            timeoffset = Decimal(('%.11f' % float(self.flags['to'])))/secperday
-            ActualTOA = self.TOA + timeoffset
-            #print '%s' % (timeoffset.quantize(Decimal(0.000000000000001)))
-            #print '%s' % (self.TOA.quantize(Decimal(0.00000000000001)))
-        else:
-            ActualTOA = self.TOA
+        #if self.flags.has_key('to'):
+            #timeoffset = Decimal(('%.11f' % float(self.flags['to'])))/secperday
+            #ActualTOA = self.TOA + timeoffset
+        #else:
+            #ActualTOA = self.TOA
+        ActualTOA = self.TOA
         if self._Observatory == '1':
             self._Observatory = 'gbt'
         elif self._Observatory == '3':
@@ -241,7 +252,8 @@ class TOA(object):
         #fmtstr = '%s %s %s %s %s' % (file, self.frequency, str(ActualTOA.quantize(Decimal(0.00000000000001))).ljust(21, ' '), TOAsigma, self._Observatory)
         fmtstr = '%s %s %s %s %s' % (file, self.frequency, str(ActualTOA).ljust(21, ' ')[:21], TOAsigma, self._Observatory)
         kwpars = ''
-        for key in [k for k in sorted(self.flags.keys(), reverse=True) if not k == 'EQUAD' and not k == 'JUMPflag' and not k =='EMAX' and not k == 'EFAC' and not k == 'EMIN' and not k == 'to']:
+        #for key in [k for k in sorted(self.flags.keys(), reverse=True) if not k == 'EQUAD' and not k == 'JUMPflag' and not k =='EMAX' and not k == 'EFAC' and not k == 'EMIN' and not k == 'to']:
+        for key in [k for k in sorted(self.flags.keys(), reverse=True) if not k == 'EQUAD' and not k == 'JUMPflag' and not k =='EMAX' and not k == 'EFAC' and not k == 'EMIN']:
             kwpars += ' -%s %s ' % (key, self.flags[key])
         result = fmtstr+kwpars
         if result[14] == '.':
@@ -267,6 +279,7 @@ class TOAfile(object):
         self.list = []
         self.cmdlist = []
         self.PHASEJUMPS = {}
+        self.TIMEOFFSETS = {}
         self.EQUADvalues = {}
         self.start = Decimal('1000000')
         self.end = Decimal('0')
@@ -277,6 +290,7 @@ class TOAfile(object):
             toagroup = []
             SKIPflag = False
             PHASEJUMPFlag = False
+            TIMEOFFSETflag = False
             for l in lines:
                 l = l.strip()
                 l = l.strip(' ')
@@ -302,6 +316,8 @@ class TOAfile(object):
                         kws.update({'i': INFO})
                         if PHASEJUMPFlag:
                             self.PHASEJUMPS[INFO] = PHASE
+                        if TIMEOFFSETflag:
+                            self.TIMEOFFSETS[INFO] = OFFSET
                         self.list.append(command)#ignore
                     elif command.cmd == 'JUMP':
                         kws['JUMPflag'] = not kws['JUMPflag']
@@ -320,9 +336,25 @@ class TOAfile(object):
                                 PHASEJUMPFlag = False
                             else:
                                 kws['padd'] = NewPhase
+                                self.PHASEJUMPS[INFO] = NewPhase 
                         else:
                             kws['padd'] = PHASE
                             PHASEJUMPFlag = True
+                            self.PHASEJUMPS[INFO] = PHASE
+                    elif command.cmd == 'TIME':
+                        OFFSET = float(command.args[0])
+                        if kws.has_key('to'):
+                            NewOffset = kws['to'] + OFFSET 
+                            if NewOffset == 0.:
+                                del kws['to']
+                                TIMEOFFSETflag = False
+                            else:
+                                kws['to'] = NewOffset
+                                self.TIMEOFFSETS[INFO] = NewOffset
+                        else:
+                            kws['to'] = OFFSET
+                            TIMEOFFSETflag = True
+                            self.TIMEOFFSETS[INFO] = OFFSET
                     elif command.cmd == 'EQUAD':
                         EQUAD = Decimal(command.args[0])
                         kws.update({'EQUAD':EQUAD})
@@ -704,19 +736,20 @@ class TOAfile(object):
         for toas in self.list:
             if isinstance(toas, (list,tuple)):
                 if tempo1use:
-                    if 'padd' in toas[0].flags and not hasphasejump:
-                        currentphasejump = toas[0].flags['padd']
-                        accumulatephasejump += toas[0].flags['padd']
-                        fmtstr += 'PHASE %s\n' % (currentphasejump)
-                        hasphasejump = True
-                    elif 'padd' in toas[0].flags and hasphasejump:
-                        currentphasejump = toas[0].flags['padd'] - accumulatephasejump
-                        if not currentphasejump == 0.:
-                            fmtstr += 'PHASE %s\n' % (currentphasejump)
-                    elif not 'padd' in toas[0].flags and hasphasejump:
-                        currentphasejump = 0 - accumulatephasejump
-                        fmtstr += 'PHASE %s\n' % (currentphasejump)
-                        hasphasejump = False
+                    #if 'padd' in toas[0].flags and not hasphasejump:
+                        #currentphasejump = toas[0].flags['padd']
+                        #accumulatephasejump += toas[0].flags['padd']
+                        #fmtstr += 'PHASE %s\n' % (currentphasejump)
+                        #hasphasejump = True
+                    #elif 'padd' in toas[0].flags and hasphasejump:
+                        #currentphasejump = toas[0].flags['padd'] - accumulatephasejump
+                        #if not currentphasejump == 0.:
+                            #fmtstr += 'PHASE %s\n' % (currentphasejump)
+                    #elif not 'padd' in toas[0].flags and hasphasejump:
+                        #currentphasejump = 0 - accumulatephasejump
+                        #fmtstr += 'PHASE %s\n' % (currentphasejump)
+                        #hasphasejump = False
+                        #accumulatephasejump = 0
 
                     if 'jump' in toas[0].flags and jumpnumber == 0:
                         jumpnumber = toas[0].flags['jump']
