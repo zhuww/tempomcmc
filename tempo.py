@@ -295,117 +295,118 @@ class TOAfile(object):
                 l = l.strip()
                 l = l.strip(' ')
                 s =l.strip().find('INCLUDE')
-                if len(l) == 0:pass
-                elif l[0] == 'C'  or l[0] == '#':
-                    pass #commented
-                elif not s == -1:
-                    fn = l[s+7:].strip()
-                    if not fn.find(' ') == -1:raise 'file name %s contains space?' % fn
-                    tf = TOAfile(fn, kws=kws, F0=self.F0)
-                    if tf.start < self.start: self.start = tf.start
-                    if tf.end > self.end: self.end = tf.end
-                    self.list.extend(tf.list)
-                    self.cmdlist.extend(tf.cmdlist)
-                elif len(l) < 25:
-                    if len(toagroup) > 0:self.list.append(toagroup)
-                    command = TOAcommand(*l.split())
-                    self.cmdlist.append(command)
-                    toagroup = []
-                    if command.cmd == 'INFO':
-                        INFO = command.args[0]
-                        kws.update({'i': INFO})
-                        if PHASEJUMPFlag:
-                            self.PHASEJUMPS[INFO] = PHASE
-                        if TIMEOFFSETflag:
-                            self.TIMEOFFSETS[INFO] = OFFSET
-                        self.list.append(command)#ignore
-                    elif command.cmd == 'JUMP':
-                        kws['JUMPflag'] = not kws['JUMPflag']
-                        if kws['JUMPflag']:
-                            if kws.has_key('jump'):
-                                kws['jump'] += 1
+                if l.strip().startswith('NOSKIP'):
+                    SKIPflag = False
+                elif l.strip().startswith('SKIP'):
+                    SKIPflag = True
+                if not SKIPflag:
+                    if len(l) == 0:pass
+                    elif l[0] == 'C'  or l[0] == '#':
+                        pass #commented
+                    elif not s == -1:
+                        fn = l[s+7:].strip()
+                        if not fn.find(' ') == -1:raise 'file name %s contains space?' % fn
+                        tf = TOAfile(fn, kws=kws, F0=self.F0)
+                        if tf.start < self.start: self.start = tf.start
+                        if tf.end > self.end: self.end = tf.end
+                        self.list.extend(tf.list)
+                        self.cmdlist.extend(tf.cmdlist)
+                    elif len(l) < 25:
+                        if len(toagroup) > 0:self.list.append(toagroup)
+                        command = TOAcommand(*l.split())
+                        self.cmdlist.append(command)
+                        toagroup = []
+                        if command.cmd == 'INFO':
+                            INFO = command.args[0]
+                            kws.update({'i': INFO})
+                            if PHASEJUMPFlag:
+                                self.PHASEJUMPS[INFO] = PHASE
+                            if TIMEOFFSETflag:
+                                self.TIMEOFFSETS[INFO] = OFFSET
+                            self.list.append(command)#ignore
+                        elif command.cmd == 'JUMP':
+                            kws['JUMPflag'] = not kws['JUMPflag']
+                            if kws['JUMPflag']:
+                                if kws.has_key('jump'):
+                                    kws['jump'] += 1
+                                else:
+                                    kws['jump'] = 1
+                            #self.list.append(command)#ignore
+                        elif command.cmd == 'PHASE':
+                            PHASE = float(command.args[0])
+                            if kws.has_key('padd'):
+                                NewPhase = kws['padd'] + PHASE
+                                if NewPhase == 0.:
+                                    del kws['padd']
+                                    PHASEJUMPFlag = False
+                                else:
+                                    kws['padd'] = NewPhase
+                                    self.PHASEJUMPS[INFO] = NewPhase 
                             else:
-                                kws['jump'] = 1
-                        #self.list.append(command)#ignore
-                    elif command.cmd == 'PHASE':
-                        PHASE = float(command.args[0])
-                        if kws.has_key('padd'):
-                            NewPhase = kws['padd'] + PHASE
-                            if NewPhase == 0.:
-                                del kws['padd']
-                                PHASEJUMPFlag = False
+                                kws['padd'] = PHASE
+                                PHASEJUMPFlag = True
+                                self.PHASEJUMPS[INFO] = PHASE
+                        elif command.cmd == 'TIME':
+                            OFFSET = float(command.args[0])
+                            if kws.has_key('to'):
+                                NewOffset = kws['to'] + OFFSET 
+                                if NewOffset == 0.:
+                                    del kws['to']
+                                    TIMEOFFSETflag = False
+                                else:
+                                    kws['to'] = NewOffset
+                                    self.TIMEOFFSETS[INFO] = NewOffset
                             else:
-                                kws['padd'] = NewPhase
-                                self.PHASEJUMPS[INFO] = NewPhase 
-                        else:
-                            kws['padd'] = PHASE
-                            PHASEJUMPFlag = True
-                            self.PHASEJUMPS[INFO] = PHASE
-                    elif command.cmd == 'TIME':
-                        OFFSET = float(command.args[0])
-                        if kws.has_key('to'):
-                            NewOffset = kws['to'] + OFFSET 
-                            if NewOffset == 0.:
-                                del kws['to']
-                                TIMEOFFSETflag = False
+                                kws['to'] = OFFSET
+                                TIMEOFFSETflag = True
+                                self.TIMEOFFSETS[INFO] = OFFSET
+                        elif command.cmd == 'EQUAD':
+                            EQUAD = Decimal(command.args[0])
+                            kws.update({'EQUAD':EQUAD})
+                            if not kws.has_key('f'):
+                                key = 1
+                                self.EQUADvalues[str(key)]=EQUAD
                             else:
-                                kws['to'] = NewOffset
-                                self.TIMEOFFSETS[INFO] = NewOffset
+                                key = int(kws['f']) + 1
+                                self.EQUADvalues[str(key)]=EQUAD
+                            kws.update({'f':str(key)})
+                        elif command.cmd == 'EMAX':
+                            self.EMAX = Decimal(command.args[0])
+                            kws['EMAX'] = self.EMAX
+                            self.list.append(command)#ignore
+                        elif command.cmd == 'EMIN':
+                            self.EMIN = Decimal(command.args[0])
+                            kws['EMIN'] = self.EMIN
+                            self.list.append(command)#ignore
+                        elif command.cmd == 'EFAC':
+                            self.EFAC = Decimal(command.args[0])
+                            self.list.append(command)#ignore
+                            kws['EFAC'] = self.EFAC
                         else:
-                            kws['to'] = OFFSET
-                            TIMEOFFSETflag = True
-                            self.TIMEOFFSETS[INFO] = OFFSET
-                    elif command.cmd == 'EQUAD':
-                        EQUAD = Decimal(command.args[0])
-                        kws.update({'EQUAD':EQUAD})
-                        if not kws.has_key('f'):
-                            key = 1
-                            self.EQUADvalues[str(key)]=EQUAD
-                        else:
-                            key = int(kws['f']) + 1
-                            self.EQUADvalues[str(key)]=EQUAD
-                        kws.update({'f':str(key)})
-                    elif command.cmd == 'EMAX':
-                        self.EMAX = Decimal(command.args[0])
-                        kws['EMAX'] = self.EMAX
-                        self.list.append(command)#ignore
-                    elif command.cmd == 'EMIN':
-                        self.EMIN = Decimal(command.args[0])
-                        kws['EMIN'] = self.EMIN
-                        self.list.append(command)#ignore
-                    elif command.cmd == 'EFAC':
-                        self.EFAC = Decimal(command.args[0])
-                        self.list.append(command)#ignore
-                        kws['EFAC'] = self.EFAC
-                    elif command.cmd == 'SKIP':
-                        SKIPflag = True
-                    elif command.cmd == 'NOSKIP':
-                        SKIPflag = False
+                            self.list.append(command)#ignore
                     else:
-                        self.list.append(command)#ignore
-                else:
-                    if len(self.cmdlist) == 0 or not self.cmdlist[-1] == 'TOAlist':
-                        self.cmdlist.append('TOAlist')
-                    if not SKIPflag:
-                        if not file.find(' ') == -1:
-                            file = ''
-                        try:
-                            t= TOA(l, file = file, **kws)
-                        except TypeError:
-                            print 'Probamatic line: ', l
-                            print 'from file %s' % file
-                        if t.flags.has_key('EMAX'): 
-                            if float(t.TOAsigma) > float(t.flags['EMAX']):
-                                continue
-                        #if t.flags.has_key('EFAC') and t.flags.has_key('EMAX'):
-                            #if t.TOAsigma * t.flags['EFAC'] > t.flags['EMAX']:
-                                #continue 
+                        if len(self.cmdlist) == 0 or not self.cmdlist[-1] == 'TOAlist':
+                            self.cmdlist.append('TOAlist')
+                        if not SKIPflag:
+                            if not file.find(' ') == -1:
+                                file = ''
+                            try:
+                                t= TOA(l, file = file, **kws)
+                            except TypeError:
+                                print 'Probamatic line: ', l
+                                print 'from file %s' % file
+                            if t.flags.has_key('EMAX'): 
+                                if float(t.TOAsigma) > float(t.flags['EMAX']):
+                                    continue
+                            #if t.flags.has_key('EFAC') and t.flags.has_key('EMAX'):
+                                #if t.TOAsigma * t.flags['EFAC'] > t.flags['EMAX']:
+                                    #continue 
 
-                        toagroup.append(t)
-                        if t.TOA < self.start:self.start = t.TOA
-                        if t.TOA > self.end: self.end = t.TOA
-                    else:
-                        pass # skipped
+                            toagroup.append(t)
+                            if t.TOA < self.start:self.start = t.TOA
+                            if t.TOA > self.end: self.end = t.TOA
+                        else:
+                            pass # skipped
             if len(toagroup) > 0:self.list.append(toagroup)
         toalist = []
         for toa in self.list:
