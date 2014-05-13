@@ -297,6 +297,7 @@ class TOAfile(object):
                 s =l.strip().find('INCLUDE')
                 if l.strip().startswith('NOSKIP'):
                     SKIPflag = False
+                    continue 
                 elif l.strip().startswith('SKIP'):
                     SKIPflag = True
                 if not SKIPflag:
@@ -1071,6 +1072,7 @@ paramap = {
         ' f7  ':'F7',
         ' f8  ':'F8',
         ' f9  ':'F9',
+        ' f*  ':'F10',
         '  Dec':'DECJ',
         '   RA':'RAJ',
         ' pmra':'PMRA',
