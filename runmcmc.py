@@ -15,11 +15,6 @@ import time
 
 from multiprocessing import Pool, Process, Manager
 
-#parfile = '1713.sns.par'
-#toafile = '1713.sns.tim'
-#chisq, dof = tempofit(parfile, toafile = toafile)
-#smallestchisq = chisq
-
 def randomnew(pf, stepsize): #special for 1713
     twopi = 6.283185307179586
     fac = 1.536e-16 * 1.e12
@@ -28,7 +23,7 @@ def randomnew(pf, stepsize): #special for 1713
     cosi = -1. * np.sqrt(1 - sini**2)
     Omega = float(str(pf.PAASCNODE))
     m2 = float(str(pf.M2[0])) + normal(0,0.05*stepsize)
-    cosi = cosi + normal(0, 0.003*stepsize)
+    cosi = cosi + uniform(-0.5, 0.5, 1)[0]*0.001*stepsize #normal(0, 0.001*stepsize)
     Omega = Omega + normal(0, 4.0*stepsize)
     mu = np.sqrt(float(str(pf.PMRA[0]**2+pf.PMDEC[0]**2)))
     #print 'mu:', mu
@@ -52,7 +47,6 @@ def probcal(pf):
     #if m2 <= 0 or Omega > 360 or Omega < -360 or sini > 1.:
         #return 0
     chisq, dof = tempofit(parfile, toafile = toafile, pulsefile = pulsefile)
-    if dof == 13722:sys.exit(0)
     pf.chisq = chisq
     if chisq < smallestchisq: smallestchisq = chisq
     try:
@@ -177,9 +171,6 @@ def motifile(file, cwd, tmpdir):
     
 from ProgressBar import progressBar
 def mcmc(Chain, runtime, MarkovChain, mixingtime=1000, stepsize=1, seed=0 ):
-    #print type(Chain)
-    #mixingtime = 1000
-    #runtime = 50000
     pb = progressBar(maxValue = runtime + mixingtime)
     cwd=os.getcwd()
     tmpdir = cwd+'/.'+uniquename()
@@ -192,69 +183,33 @@ def mcmc(Chain, runtime, MarkovChain, mixingtime=1000, stepsize=1, seed=0 ):
     os.system('cp %s/%s %s/%s' % (cwd, parfile, tmpdir, parfile))
     os.system('cp %s/%s %s/%s' % (cwd, pulsefile, tmpdir, pulsefile))
     motifile(toafile, cwd, tmpdir)
-    #MarkovChain = Chain.Chain
+    touchparfile(parfile, NITS=1)
     pf = PARfile(parfile)
-    #pf = model(parfile)
-    #pf.thawall()
-    #pf.freezeall('DMX_0')
-    #pf.parameters['SINI'] = '0'
-    #pf.parameters['M2'] = '0'
-    #pf.parameters['XDOT'] = '0'
-
-    pf.write()
-    chisq, dof = tempofit(parfile, toafile = toafile, pulsefile = pulsefile)
-    #pf.tempofit(toafile, pulsefile = pulsefile)
-    chisq, dof = chisq, dof
+    #chisq, dof = tempofit(parfile, toafile = toafile, pulsefile = pulsefile)
     pf.matrix(toafile)
     pf.freezeall()
-    pf.thawall('JUMP_')
-    pf.write()
-
-    #if 'PAASCNODE'in pf.__dict__:
-        #plist = [x for x in pf.manifest if x in pf.parameters.keys()] + ['PAASCNODE']
-        #dict = {'BEST':[pf.__dict__[p][0] for p in plist[:-1]] + [pf.__dict__[p] for p in plist[-1:]], 'parfile':pf.parfile, 'parameters':plist + ['chisq']}
-    #else:
-    #plist = [x for x in pf.manifest if x in pf.parameters.keys() if not x.startswith('DMX') and not x.startswith('JUMP') and not x in ['RAJ', 'DECJ']]
-    plist = [x for x in pf.manifest if x in pf.parameters.keys() ]
-
-    dit = {'BEST':[pf.__dict__[p][0] for p in plist] + [ chisq], 'parfile':pf.parfile, 'parameters':plist + [ 'chisq']}
-    pickle.dump(dit, open('%s/bestpar.p' % cwd, 'w', 0), protocol=2)
+    #pf.thawall('JUMP_')
+    #pf.write()
+    #plist = [x for x in pf.manifest if x in pf.parameters.keys() ]
+    #dit = {'BEST':[pf.__dict__[p][0] for p in plist] + [ chisq], 'parfile':pf.parfile, 'parameters':plist + [ 'chisq']}
+    #pickle.dump(dit, open('%s/bestpar.p' % cwd, 'w', 0), protocol=2)
     p0 = probcal(pf)
     p = p0
     ThisChain = []
-    #print 'P0', p0
-    #try:
-        #MChain = pickle.load(open('MChain.p', 'r'))
-    #except:
-        #MChain = {'Chain':[]}
-    #MChain['parameters'] = plist
-    #pickle.dump(MChain, open('MChain.p', 'w'))
-    n = count()
-    m = count()
-    while n.next() <= mixingtime + runtime:
+    c = 0
+    while c <= mixingtime + runtime:
+        c+=1
         npf = pf.randomnew(stepsize=stepsize)
         #randomnew(npf, stepsize) #only use this for 1713
         p1 = probcal(npf)
-        #print p1, npf.XDOT[0] , npf.chisq
-        c = m.next()
         if c % 30 == 0:pb(c)
-        #if c > mixingtime and c % (1000+(seed%100)*10) == 0:
         if c > mixingtime and c % (100+(seed%100)) == 0:
-            #print "what's in the Chain", len(Chain.Chain)
-            #print 'save at ', c
-            #Chain.save()
             MarkovChain.extend(Chain.Chain)
             ThisChain.extend(Chain.Chain)
             Chain.Chain = [] #empty the list
             #try:
             TC = np.array(ThisChain)
             dit = {'Chain':TC}
-            #except:
-                #print "it's here!"
-                #print set([len(l) for l in MarkovChain])
-                #print set([type(l) for l in MarkovChain])
-                #print MC
-                #print dit
             pid = str(os.getpid())
             try: 
                 os.remove(cwd+'/MChain.p'+pid)
@@ -288,15 +243,8 @@ def mcmc(Chain, runtime, MarkovChain, mixingtime=1000, stepsize=1, seed=0 ):
             else:
                 if c > mixingtime:
                     Chain.Chain.append([pf.__dict__[p][0] for p in plist] + [ npf.chisq])
-    #print  MarkovChain
-    #print best
-    #print '\n%d points added to the Chain.' % len(Chain.Chain)
-    #OldChain = pickle.load(open('MChain.p','r'))['Chain']
-    #dict['Chain'] = OldChain + MarkovChain
-    #dict['Chain'] = MarkovChain
     MarkovChain.extend(Chain.Chain)
     os.chdir(cwd)
-    #os.rmdir(tmpdir)
 
         
 from optparse import OptionParser
@@ -334,7 +282,15 @@ if __name__ == '__main__':
     smallestchisq = chisq
     #print 'smallestchisq', smallestchisq, dof
 
-    #IOLock = manager.lock()
+    cwd=os.getcwd()
+    plist = [x for x in pf.manifest if x in pf.parameters.keys() if not x.startswith('DMX') and not x.startswith('JUMP')]
+
+    dit = {'BEST':[pf.__dict__[p][0] for p in plist] + [chisq], 'parfile':pf.parfile, 'parameters':plist + ['chisq']}
+    pickle.dump(dit, open('%s/bestpar.p' % cwd, 'w', 0), protocol=2)
+    
+
+
+
     def run(argv):
         s, MarkovChain = argv
         seed(s) # assigning different initial seed for the random number generator in different threads.
