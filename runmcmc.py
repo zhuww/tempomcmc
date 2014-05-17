@@ -50,7 +50,8 @@ def probcal(pf):
     pf.chisq = chisq
     if chisq < smallestchisq: smallestchisq = chisq
     try:
-        return exp((smallestchisq - chisq)/2.) #Ingrid/Paul?
+        #return exp((smallestchisq - chisq)/2.) #Ingrid/Paul?
+        return (smallestchisq - chisq)/2. #Ingrid/Paul?
     except OverflowError:
         print chisq, smallestchisq
         print pf.parfile
@@ -152,62 +153,54 @@ def mcmc(Chain, runtime, MarkovChain, mixingtime=1000, stepsize=1, seed=0 ):
     pf = PARfile(parfile)
     #chisq, dof = tempofit(parfile, toafile = toafile, pulsefile = pulsefile)
     pf.matrix(toafile)
-    #pf.freezeall()
+    pf.freezeall()
     #pf.thawall('JUMP_')
     #pf.write()
     #plist = [x for x in pf.manifest if x in pf.parameters.keys() ]
     #dit = {'BEST':[pf.__dict__[p][0] for p in plist] + [ chisq], 'parfile':pf.parfile, 'parameters':plist + [ 'chisq']}
     #pickle.dump(dit, open('%s/bestpar.p' % cwd, 'w', 0), protocol=2)
     p0 = probcal(pf)
-    p = p0
+    pmax = p0
     ThisChain = []
     c = 0
+    randomlist = uniform(0,1,stepsize)
     while c <= mixingtime + runtime:
         c+=1
         npf = pf.randomnew(stepsize=stepsize)
         #randomnew(npf, stepsize) #only use this for 1713
         p1 = probcal(npf)
         if c % 30 == 0:pb(c)
-        if c > mixingtime and c % (100+(seed%100)) == 0:
-            MarkovChain.extend(Chain.Chain)
-            ThisChain.extend(Chain.Chain)
-            Chain.Chain = [] #empty the list
-            #try:
-            TC = np.array(ThisChain)
-            dit = {'Chain':TC}
-            pid = str(os.getpid())
-            try: 
-                os.remove(cwd+'/MChain.p'+pid)
-            except:pass
-            f = open(cwd+'/MChain.p'+pid, 'wb', 0)
-            pickle.dump(dit, f, protocol=2)
-            f.flush()
-            f.close()
-            del dit
-            del TC
-        if p1 > p0:
-            if c > mixingtime:
+        if c > mixingtime:
+            t = randomlist[c-mixingtime-1]
+            if t < exp(p1-p0):
                 Chain.Chain.append([npf.__dict__[p][0] for p in plist] + [ npf.chisq])
-            pf = npf
-            p0 = p1
-            if p1 > p:
-                p = p1
-                #if 'PAASCNODE' in plist:
-                    #dict['BEST'] = [pf.__dict__[p][0] for p in plist[:-1]] + [pf.__dict__[p] for p in plist[-1:]] + [npf.chisq]
-                #else:
-                dit['BEST'] = [npf.__dict__[p][0] for p in plist] + [ npf.chisq]
-                pickle.dump(dit, open('%s/bestpar.p' % cwd, 'wb', 0), protocol=2)
-        else:
-            t = uniform(0,1,1)[0]
-            if t < p1/p0:
-                if c > mixingtime:
-                    Chain.Chain.append([npf.__dict__[p][0] for p in plist] + [ npf.chisq])
-                #print npf.M2[0], npf.chisq
                 pf = npf
                 p0 = p1
+                if p1 > pmax:
+                    pmax = p1
+                    bestpar['BEST'] = [npf.__dict__[p][0] for p in plist] + [ npf.chisq]
+                    pickle.dump(bestpar, open('%s/bestpar.p' % cwd, 'wb', 0), protocol=2)
             else:
-                if c > mixingtime:
-                    Chain.Chain.append([pf.__dict__[p][0] for p in plist] + [ npf.chisq])
+                Chain.Chain.append([pf.__dict__[p][0] for p in plist] + [ npf.chisq])
+
+            if c % (100+(seed%100)) == 0:
+                MarkovChain.extend(Chain.Chain)
+                ThisChain.extend(Chain.Chain)
+                Chain.Chain = [] #empty the list
+                #try:
+                TC = np.array(ThisChain)
+                dit = {'Chain':TC}
+                pid = str(os.getpid())
+                try: 
+                    os.remove(cwd+'/MChain.p'+pid)
+                except:pass
+                f = open(cwd+'/MChain.p'+pid, 'wb', 0)
+                pickle.dump(dit, f, protocol=2)
+                f.flush()
+                f.close()
+                del dit
+                del TC
+
     MarkovChain.extend(Chain.Chain)
     os.chdir(cwd)
 
@@ -250,8 +243,8 @@ if __name__ == '__main__':
     cwd=os.getcwd()
     plist = [x for x in pf.manifest if x in pf.parameters.keys() if not x.startswith('DMX') and not x.startswith('JUMP')]
 
-    dit = {'BEST':[pf.__dict__[p][0] for p in plist] + [chisq], 'parfile':pf.parfile, 'parameters':plist + ['chisq']}
-    pickle.dump(dit, open('%s/bestpar.p' % cwd, 'w', 0), protocol=2)
+    bestpar = {'BEST':[pf.__dict__[p][0] for p in plist] + [chisq], 'parfile':pf.parfile, 'parameters':plist + ['chisq']}
+    pickle.dump(bestpar, open('%s/bestpar.p' % cwd, 'w', 0), protocol=2)
     
 
 
