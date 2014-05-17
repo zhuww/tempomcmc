@@ -163,8 +163,8 @@ def mcmc(Chain, runtime, MarkovChain, mixingtime=1000, stepsize=1, seed=0 ):
     pmax = p0
     ThisChain = []
     c = 0
-    randomlist = uniform(0,1,stepsize)
-    while c <= mixingtime + runtime:
+    randomlist = uniform(0,1,size=runtime)
+    while c <= mixingtime + runtime - 1:
         c+=1
         npf = pf.randomnew(stepsize=stepsize)
         #randomnew(npf, stepsize) #only use this for 1713
