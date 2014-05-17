@@ -187,7 +187,7 @@ def mcmc(Chain, runtime, MarkovChain, mixingtime=1000, stepsize=1, seed=0 ):
     pf = PARfile(parfile)
     #chisq, dof = tempofit(parfile, toafile = toafile, pulsefile = pulsefile)
     pf.matrix(toafile)
-    pf.freezeall()
+    #pf.freezeall()
     #pf.thawall('JUMP_')
     #pf.write()
     #plist = [x for x in pf.manifest if x in pf.parameters.keys() ]
