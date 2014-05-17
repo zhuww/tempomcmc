@@ -70,43 +70,11 @@ manager = Manager()
 
 class MChain(object):
     def __enter__(self):
-        #try:
-            #Chain = pickle.load(open('MChain.p', 'r'))['Chain']
-        #except:
-            #Chain = []
         self.Chain = []
         self.cwd = os.getcwd()
         return self
     def __exit__(self, exc_type, exc_value, exc_tb):
         os.chdir(self.cwd)
-        #try:
-            #f = open(self.cwd+'/MChain.p', 'rb')
-            #MarkovChain = pickle.load(f)['Chain']
-            #f.close()
-            #f1 = open(self.cwd+'/MChain.p'+str(os.getpid()), 'rb')
-            #ThisChain = pickle.load(f1)['Chain']
-            #f1.close()
-            #MarkovChain.extend(ThisChain)
-            #MarkovChain.extend(self.Chain)
-        #except IOError:
-            #MarkovChain = self.Chain
-        #except EOFError:
-            #print 'encouter EOFerror at exit'
-            #time.sleep(10)
-            #self.__exit__(exc_type, exc_value, exc_tb)
-            #return True
-        #if len(MarkovChain)>2: 
-            #if len(MarkovChain[-1]) < len(MarkovChain[-2]):
-                #MarkovChain = MarkovChain[:-1]
-        #dit = {'Chain':MarkovChain}
-        #f = open(self.cwd+'/MChain.p', 'wb')
-        #pickle.dump(dit, f, protocol=2)
-        #f.flush()
-        #f.close()
-        #del dit
-        #os.remove(self.cwd+'/MChain.p'+str(os.getpid()))
-        #print len(MarkovChain), 'points saved to MChain.p'
-        #self.save()
 
         try:
             os.remove(self.cwd+'/MChain.p'+str(os.getpid()))
@@ -120,9 +88,6 @@ class MChain(object):
 
     def save(self):
         try:
-            #f = open(self.cwd+'/MChain.p', 'rb')
-            #MarkovChain = pickle.load(f)['Chain']
-            #f.close()
             MarkovChain.extend(self.Chain)
             self.Chain = []
         except IOError:
