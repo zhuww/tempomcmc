@@ -48,6 +48,7 @@ def probcal(pf):
         #return 0
     chisq, dof = tempofit(parfile, toafile = toafile, pulsefile = pulsefile)
     pf.chisq = chisq
+    print dof, chisq
     if chisq < smallestchisq: smallestchisq = chisq
     try:
         return exp((smallestchisq - chisq)/2.) #Ingrid/Paul?

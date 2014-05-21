@@ -1145,6 +1145,8 @@ class PARfile(object):
         self.file = open(file, 'r')
         self.jumps = {0:Decimal(0)}
         self.TempoVersion = 1
+        self.UseTempo2StyJumps = False
+        JumpCount = 0
         for lines in self.file.readlines():
             items = lines.split()
             if len(items) == 0:pass
@@ -1153,6 +1155,8 @@ class PARfile(object):
             elif items[0]== 'C':pass
             elif items[0].upper() == 'JUMP' and items[1].startswith('-'):
                 jumptag = '%s %s %s' % tuple(items[:3])
+                JumpCount += 1
+                jumpalias = 'JUMP_' + str(JumpCount)
                 self.manifest.append(jumptag)
                 if len(items) > 3:
                     self.__dict__[jumptag] = [Decimal(items[3]), Decimal(0)]
@@ -1166,6 +1170,7 @@ class PARfile(object):
                 else:
                     self.__dict__[jumptag] = (Decimal(0), Decimal(0))
                     self.parameters[jumptag] = '1'
+                self.__dict__[jumpalias] = self.__dict__[jumptag] #setup the jump alias, this does not work if both tempo1 and tempo2 format are used in mixture.
             elif len(items) == 2 and not items[0] in ['SINI', 'M2', 'XDOT']: 
                 self.__dict__[items[0]] = floatify(items[1])
                 self.manifest.append(items[0])
@@ -1175,6 +1180,15 @@ class PARfile(object):
                 else:
                     self.__dict__[items[0]] = value
                 self.manifest.append(items[0])
+            elif items[0].startswith('T2E'):
+                if len(items) >= 4:
+                    T2Etag = ' '.join(items[0:3]) 
+                    value = floatify(items[3])
+                    self.__dict__[T2Etag] = value
+                else:
+                    print items, 'this list seems to be too short for a T2EXXX parameter'
+                    raise Error 
+                self.manifest.append(T2Etag)
             elif len(items) == 3 or items[0] in ['SINI', 'M2', 'XDOT']:
                 value = floatify(items[1])
                 if isinstance(value, decimal.Decimal):
