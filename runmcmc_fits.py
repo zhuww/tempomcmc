@@ -11,7 +11,31 @@ from itertools import count
 import cPickle as pickle
 import os,sys
 from tempfile import mkdtemp
+from decimal import *
 
+
+def randomnew(pf, stepsize): #special for 1713
+    twopi = 6.283185307179586
+    fac = 1.536e-16 * 1.e12
+    x = float(str(pf.A1[0]))
+    sini = float(str(pf.SINI[0]))
+    cosi = -1. * np.sqrt(1 - sini**2)
+    Omega = float(str(pf.PAASCNODE))
+    m2 = float(str(pf.M2[0])) + normal(0,0.01*stepsize)
+    cosi = cosi + uniform(-0.5, 0.5, 1)[0]*0.001*stepsize #normal(0, 0.001*stepsize)
+    Omega = Omega + normal(0, 0.1*stepsize)
+    mu = np.sqrt(float(str(pf.PMRA[0]**2+pf.PMDEC[0]**2)))
+    #print 'mu:', mu
+    #sini = sqrt(1 - cosi**2)
+    thetamu = 180. + np.arctan(float(str(pf.PMRA[0]/pf.PMDEC[0])))/np.pi*180
+    xdot = -1.* fac * x * mu * (cosi/sini) * sin((thetamu-Omega)*twopi/360.)
+    sini = np.sqrt(1 - cosi**2)
+    pf.SINI[0] = Decimal(str(sini))
+    pf.XDOT[0] = Decimal(str(xdot))
+    pf.PAASCNODE = Decimal(str(Omega))
+    pf.M2[0] = Decimal(str(m2))
+    #print np.arcsin(sini)*180/np.pi, Omega, thetamu, xdot
+    return pf
 
 def probcal(pf):
     global smallestchisq
