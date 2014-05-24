@@ -1,0 +1,301 @@
+from math import *
+from tempo import tempofit, tempo2fit, touchparfile, uniquename, PARfile #, model, TOAfile
+from numpy.random import normal , uniform ,seed
+import numpy as np
+import time
+from multiprocessing import Pool, Process, Manager, JoinableQueue
+import os,sys
+import pyfits
+import fitsio
+from itertools import count
+import cPickle as pickle
+import os,sys
+from tempfile import mkdtemp
+
+
+def probcal(pf):
+    global smallestchisq
+    pf.write()
+    #m2 = float(str(pf.M2[0]))
+    #Omega = float(str(pf.PAASCNODE))
+    #sini = float(str(pf.SINI[0]))
+    #if m2 <= 0 or Omega > 360 or Omega < -360 or sini > 1.:
+        #return 0
+    chisq, dof = tempofit(parfile, toafile = toafile, pulsefile = pulsefile)
+    pf.chisq = chisq
+    #print dof, chisq
+    if chisq < smallestchisq: smallestchisq = chisq
+    try:
+        #return exp((smallestchisq - chisq)/2.) #Ingrid/Paul?
+        return (smallestchisq - chisq)/2. #Ingrid/Paul?
+    except OverflowError:
+        print chisq, smallestchisq
+        print pf.parfile
+        raise OverflowError 
+
+#print probcal(90, 0.25, 0.28)
+
+
+
+class MChain(object):
+    def __enter__(self):
+        self.Chain = []
+        self.cwd = os.getcwd()
+        return self
+    def __exit__(self, exc_type, exc_value, exc_tb):
+        os.chdir(self.cwd)
+
+        try:
+            os.remove(self.cwd+'/MChain.p'+str(os.getpid()))
+        except:pass
+        if exc_type is KeyboardInterrupt:
+            print '\nManually Stopped\n'
+            return True
+        else:
+            return exc_type is None
+        print '\nFinish running\n' 
+
+    def save(self):
+        try:
+            MarkovChain.extend(self.Chain)
+            self.Chain = []
+        except IOError:
+            MarkovChain = self.Chain
+        except EOFError:
+            print 'encounter EOFError here', os.getpid(), cwd
+            #time.sleep(10)
+            self.save()
+            return
+        if len(MarkovChain)>2: 
+            if len(MarkovChain[-1]) < len(MarkovChain[-2]):
+                MarkovChain = MarkovChain[:-1]
+        dit = {'Chain':np.array(MarkovChain)}
+        f = open(self.cwd+'/MChain.p'+str(os.getpid()), 'wb', 0)
+        pickle.dump(dit, f, protocol=2)
+        f.flush()
+        f.close()
+        del dit
+
+from ProgressBar import progressBar
+def mcmc(Chain, runtime, MarkovChain, mixingtime=1000, stepsize=1, seed=0 ):
+    pb = progressBar(maxValue = runtime + mixingtime)
+    cwd=os.getcwd()
+    tmpdir = cwd+'/.'+uniquename()
+    if not tmpdir == None:
+        if os.path.exists(tmpdir):
+            os.chdir(tmpdir)
+        else:
+            os.mkdir(tmpdir)
+            os.chdir(tmpdir)
+    os.system('cp %s/%s %s/%s' % (cwd, parfile, tmpdir, parfile))
+    os.system('cp %s/%s %s/%s' % (cwd, pulsefile, tmpdir, pulsefile))
+    motifile(toafile, cwd, tmpdir)
+    touchparfile(parfile, NITS=1)
+    pf0 = PARfile(parfile)
+    pf0.LongParameters = []
+    pf = pf0
+    for par in [p for p in pf.parameters if not p in ['RAJ', 'DECJ']]:
+        val,err = pf.__dict__[par]
+        if err > 0 and not pf.parameters[par] == 0:
+            NumSigDig = np.log10(np.abs(val/err)) 
+            if NumSigDig > 10:
+                pf.LongParameters.append(par)
+    plist = [x for x in pf.manifest if x in pf.parameters.keys() if not x.startswith('DMX') and not x.startswith('JUMP')] 
+    dtypes = np.dtype([(p, '>f8') for p in (plist+['chisq'])])
+    pf0.matrix(toafile)
+    pf0.freezeall()
+    p0 = probcal(pf0)
+    pmax = p0
+    ThisChain = []
+    c = 0
+    randomlist = uniform(0,1,size=runtime)
+    def savepar(npf, pf, plist):
+        dataarray = []
+        for p in plist:
+            if p in ['RAJ', 'DECJ']:
+                dataarray.append(float(npf.__dict__[p][0].split(':')[-1]) - float(pf.__dict__[p][0].split(':')[-1]))
+            elif p in pf.LongParameters:
+                dataarray.append(float(str(npf.__dict__[p][0] - pf.__dict__[p][0])))
+            else:
+                dataarray.append(float(npf.__dict__[p][0]))
+        dataarray.append(npf.chisq)
+        return tuple(dataarray)
+
+    while c <= mixingtime + runtime - 1:
+        c+=1
+        npf = pf.randomnew(stepsize=stepsize)
+        #randomnew(npf, stepsize) #only use this for 1713
+        p1 = probcal(npf)
+        if c % 30 == 0:pb(c)
+        if c > mixingtime:
+            t = randomlist[c-mixingtime-1]
+            if t < exp(p1-p0):
+                Chain.Chain.append(savepar(npf, pf0, plist))
+                pf = npf
+                p0 = p1
+                if p1 > pmax:
+                    pmax = p1
+                    bestpar['BEST'] = [npf.__dict__[p][0] for p in plist] + [ npf.chisq]
+                    pickle.dump(bestpar, open('%s/bestpar.p' % cwd, 'wb', 0), protocol=2)
+            else:
+                Chain.Chain.append(savepar(pf, pf0, plist))
+        if c % (100+(seed%100)) == 0:
+            data = np.array(Chain.Chain, dtype=dtypes)
+            MarkovChain.put(data)
+            Chain.Chain = []
+    data = np.array(Chain.Chain, dtype=dtypes)
+    MarkovChain.put(data)
+
+def motifile(file, cwd, tmpdir):
+    os.system('cp %s/%s %s/%s' % (cwd, file, tmpdir, file))
+    text = ''
+    f = open(file, 'rw')
+    for l in f.readlines():
+        if not l.find('INCLUDE') == -1:
+            a = l.split()
+            if a[0] == 'C' or a[0] =='#':
+                continue
+            if not open(cwd+'/'+a[1],'r').read().find('INCLUDE') == -1: 
+                motifile(a[1], '..', '.')
+                l = a[0] +' '+a[1]
+            else:
+                l = a[0] + ' '+cwd+'/'+a[1]
+            if not l[-1] == '\n':
+                l += '\n'
+            text += l
+        else:
+            if not l[-1] == '\n':
+                l += '\n'
+            text += l
+    f.close()
+    f = open(file, 'w')
+    f.write(text)
+    f.close() #motify the tim file to make sure INCLUDE follow the right files.
+
+from optparse import OptionParser
+if __name__ == '__main__':
+    usage = "usage: %prog [options] arg"
+    parser = OptionParser()
+    parser.add_option("-f", '--parfile', dest="parfile", help="par file")
+    parser.add_option("-t", '--timfile', dest="toafile", help="toa file")
+    parser.add_option("-n", '--pulsefile', dest="pulsefile", help="pulse number file", default=None)
+    parser.add_option("-i", '--iter', type='int', nargs=1, dest='steps', help="number of steps")
+    parser.add_option("-m", '--mixing', type='int', nargs=1, dest='mixing', help="number of mixing steps", default=1000)
+    parser.add_option("-p", '--parallel', type='int', nargs=1, dest='paral', help="number of parallel processes")
+    parser.add_option("-s", '--seed', type='int', nargs=1, dest='seed', default=int(os.getpid()), help="random number seed")
+    parser.add_option("-z", '--stepsize', type='float', nargs=1, dest='stepsize', default=1., help="step size")
+    (options, args) = parser.parse_args(args=sys.argv[1:])
+    print options
+
+    parfile = options.parfile
+    toafile = options.toafile
+    pulsefile = options.pulsefile
+    steps = options.steps
+    mixing = options.mixing
+    rseed = options.seed
+    stepsize = options.stepsize
+    px = options.paral
+    pf = PARfile(parfile)
+    pf.LongParameters = []
+    for par in [p for p in pf.parameters if not p in ['RAJ', 'DECJ']]:
+        val,err = pf.__dict__[par]
+        if err > 0 and not pf.parameters[par] == 0:
+            NumSigDig = np.log10(np.abs(val/err)) 
+            if NumSigDig > 10:
+                pf.LongParameters.append(par)
+    pf.freezeall()
+    pf.thawall('JUMP_')
+    pf.write('mcmc.par')
+    touchparfile('mcmc.par', NITS=1)
+    chisq, dof = tempofit('mcmc.par', toafile = toafile, pulsefile = pulsefile)
+    #pf.tempofit(TOAfile(toafile), pulsefile = pulsefile)
+    smallestchisq = chisq
+    plist = [x for x in pf.manifest if x in pf.parameters.keys() if not x.startswith('DMX') and not x.startswith('JUMP')] 
+    cols = []
+    for par in plist:
+        if par in ['RAJ', 'DECJ', 'RA', 'DEC']:
+            col = pyfits.Column(name=par, format='D', array=[0.])
+        elif par in pf.LongParameters:
+            col = pyfits.Column(name=par, format='D', array=[0.])
+        else:
+            col = pyfits.Column(name=par, format='D', array=[float(pf.__dict__[par][0])])
+        cols.append(col)
+    cols.append(pyfits.Column(name='chisq', format='D', array=[chisq]))
+    newtbl = pyfits.new_table(cols)
+    newhdr = newtbl.header
+    for par in [p for p in plist if p in ['RAJ', 'DECJ', 'RA', 'DEC'] or p in pf.LongParameters]:
+        newhdr.set(par , str(pf.__dict__[par][0]))
+    newhdr.set('SPCPAR', '|'.join(pf.LongParameters))
+
+    PSRname = pf.PSR
+    newtbl.writeto(PSRname+'.mcmc')
+
+    def save_chain(chain):
+        ff = fitsio.FITS(PSRname+'.mcmc', 'rw')
+        ff[-1].append(chain)
+        ff.close()
+
+    def collector(queue, savecount=10):
+        counter = 0
+        chain = queue.get()
+        while True:
+            newchain = queue.get()# Read from the queue and do nothing
+            chain = np.append(chain, newchain) 
+            counter += 1
+            if counter >= savecount:
+                #print 'save:', chain.shape
+                save_chain(chain)
+                chain = queue.get()
+                counter = 0
+            #queue.task_done()
+        save_chain(chain)
+        queue.task_done()
+
+    class worker(Process):
+        def __init__(self, MarkovChain,  steps, mixing, stepsize, seed ):
+            Process.__init__(self)
+            self.queue = MarkovChain
+            self.steps = steps
+            self.mixing = mixing
+            self.stepsize = stepsize
+            self.seed = seed
+        def run(self):
+            #s, MarkovChain = argv
+            np.random.seed(self.seed) # assigning different initial seed for the random number generator in different threads.
+            with MChain() as Chain:
+                mcmc(Chain, self.steps, self.queue , mixingtime=self.mixing, stepsize=self.stepsize, seed=self.seed)
+            self.queue.task_done()
+            return 
+
+    #MarkovChain = manager.list()
+    MarkovChain = JoinableQueue()
+    cwd = os.getcwd()
+    if px == None:
+        ChainSaver = Process(target=collector, args=((MarkovChain,)))
+    else:
+        ChainSaver = Process(target=collector, args=((MarkovChain,px)))
+    ChainSaver.daemon = True
+    ChainSaver.start()
+
+    rseed = int(os.getpid())
+    if px == None:
+        #run([rseed, MarkovChain])
+        w = worker(MarkovChain, steps, mixing, stepsize, rseed)
+        w.start()
+        MarkovChain.join()
+        w.join()
+    else:
+        px = options.paral
+        #p = Pool(px)
+        workforce = []
+        for s in range(px):
+            seed = rseed+100*s
+            workmule = worker(MarkovChain, steps, mixing, stepsize, seed)
+            workforce.append(workmule)
+        for w in workforce:
+            w.start()
+        #p.map(run, [(rseed+100*s, MarkovChain) for s in range(px)])
+        MarkovChain.join()
+        for w in workforce:
+            w.join()
+

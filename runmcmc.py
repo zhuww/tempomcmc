@@ -152,14 +152,8 @@ def mcmc(Chain, runtime, MarkovChain, mixingtime=1000, stepsize=1, seed=0 ):
     motifile(toafile, cwd, tmpdir)
     touchparfile(parfile, NITS=1)
     pf = PARfile(parfile)
-    #chisq, dof = tempofit(parfile, toafile = toafile, pulsefile = pulsefile)
     pf.matrix(toafile)
     pf.freezeall()
-    #pf.thawall('JUMP_')
-    #pf.write()
-    #plist = [x for x in pf.manifest if x in pf.parameters.keys() ]
-    #dit = {'BEST':[pf.__dict__[p][0] for p in plist] + [ chisq], 'parfile':pf.parfile, 'parameters':plist + [ 'chisq']}
-    #pickle.dump(dit, open('%s/bestpar.p' % cwd, 'w', 0), protocol=2)
     p0 = probcal(pf)
     pmax = p0
     ThisChain = []

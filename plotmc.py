@@ -20,6 +20,7 @@ Msun = 1.98892e30
 c = 2.99792458e8
 twopi = 6.283185307179586
 fac = 1.536e-16 
+Tsun = 4.925490947e-6
 
 try:
     ipb = plist.index('PB')
