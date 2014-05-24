@@ -159,8 +159,8 @@ def mcmc(Chain, runtime, MarkovChain, mixingtime=1000, stepsize=1, seed=0 ):
                 p0 = p1
                 if p1 > pmax:
                     pmax = p1
-                    bestpar['BEST'] = [npf.__dict__[p][0] for p in plist] + [ npf.chisq]
-                    pickle.dump(bestpar, open('%s/bestpar.p' % cwd, 'wb', 0), protocol=2)
+                    #bestpar['BEST'] = [npf.__dict__[p][0] for p in plist] + [ npf.chisq]
+                    #pickle.dump(bestpar, open('%s/bestpar.p' % cwd, 'wb', 0), protocol=2)
             else:
                 Chain.Chain.append(savepar(pf, pf0, plist))
         if c % (100+(seed%100)) == 0:
