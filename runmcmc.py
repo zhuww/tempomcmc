@@ -158,25 +158,27 @@ def mcmc(Chain, runtime, MarkovChain, mixingtime=1000, stepsize=1, seed=0 ):
     pmax = p0
     ThisChain = []
     c = 0
-    randomlist = uniform(0,1,size=runtime)
+    randomlist = uniform(0,1,size=runtime+mixingtime)
     while c <= mixingtime + runtime - 1:
         c+=1
         npf = pf.randomnew(stepsize=stepsize)
         #randomnew(npf, stepsize) #only use this for 1713
         p1 = probcal(npf)
         if c % 30 == 0:pb(c)
+        t = randomlist[c-1]
+        if t < exp(p1-p0):
+            pf = npf
+            p0 = p1
+            if p1 > pmax:
+                pmax = p1
+                bestpar['BEST'] = [npf.__dict__[p][0] for p in plist] + [ npf.chisq]
+                pickle.dump(bestpar, open('%s/bestpar.p' % cwd, 'wb', 0), protocol=2)
         if c > mixingtime:
-            t = randomlist[c-mixingtime-1]
             if t < exp(p1-p0):
                 Chain.Chain.append([npf.__dict__[p][0] for p in plist] + [ npf.chisq])
-                pf = npf
-                p0 = p1
-                if p1 > pmax:
-                    pmax = p1
-                    bestpar['BEST'] = [npf.__dict__[p][0] for p in plist] + [ npf.chisq]
-                    pickle.dump(bestpar, open('%s/bestpar.p' % cwd, 'wb', 0), protocol=2)
             else:
                 Chain.Chain.append([pf.__dict__[p][0] for p in plist] + [ npf.chisq])
+            t = randomlist[c-mixingtime-1]
 
             if c % (100+(seed%100)) == 0:
                 MarkovChain.extend(Chain.Chain)

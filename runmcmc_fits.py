@@ -1,5 +1,5 @@
 from math import *
-from tempo import tempofit, tempo2fit, touchparfile, uniquename, PARfile #, model, TOAfile
+from datatools.tempo import tempofit, tempo2fit, touchparfile, uniquename, PARfile #, model, TOAfile
 from numpy.random import normal , uniform ,seed
 import numpy as np
 import time
@@ -59,6 +59,27 @@ def probcal(pf):
 
 #print probcal(90, 0.25, 0.28)
 
+def initfitsfile(pf):
+    plist = [x for x in pf.manifest if x in pf.parameters.keys() if not x.startswith('DMX') and not x.startswith('JUMP')] 
+    cols = []
+    for par in plist:
+        if par in ['RAJ', 'DECJ', 'RA', 'DEC']:
+            col = pyfits.Column(name=par, format='D', array=[])
+        elif par in pf.LongParameters:
+            col = pyfits.Column(name=par, format='D', array=[])
+        else:
+            #col = pyfits.Column(name=par, format='D', array=[float(pf.__dict__[par][0])])
+            col = pyfits.Column(name=par, format='D', array=[])
+        cols.append(col)
+    #cols.append(pyfits.Column(name='chisq', format='D', array=[chisq]))
+    cols.append(pyfits.Column(name='chisq', format='D', array=[]))
+    newtbl = pyfits.new_table(cols)
+    newhdr = newtbl.header
+    for par in [p for p in plist if p in ['RAJ', 'DECJ', 'RA', 'DEC'] or p in pf.LongParameters]:
+        newhdr.set(par , str(pf.__dict__[par][0]))
+    newhdr.set('SPCPAR', '|'.join(pf.LongParameters))
+    PSRname = pf.PSR
+    newtbl.writeto(PSRname+'.mcmc')
 
 
 class MChain(object):
@@ -102,6 +123,7 @@ class MChain(object):
 
 from ProgressBar import progressBar
 def mcmc(Chain, runtime, MarkovChain, mixingtime=1000, stepsize=1, seed=0 ):
+    global smallestchisq
     pb = progressBar(maxValue = runtime + mixingtime)
     cwd=os.getcwd()
     tmpdir = cwd+'/.'+uniquename()
@@ -132,7 +154,7 @@ def mcmc(Chain, runtime, MarkovChain, mixingtime=1000, stepsize=1, seed=0 ):
     pmax = p0
     ThisChain = []
     c = 0
-    randomlist = uniform(0,1,size=runtime)
+    randomlist = uniform(0,1,size=runtime+mixingtime)
     def savepar(npf, pf, plist):
         dataarray = []
         for p in plist:
@@ -151,16 +173,15 @@ def mcmc(Chain, runtime, MarkovChain, mixingtime=1000, stepsize=1, seed=0 ):
         #randomnew(npf, stepsize) #only use this for 1713
         p1 = probcal(npf)
         if c % 30 == 0:pb(c)
+        t = randomlist[c-1]
+        if t < exp(p1-p0):
+            pf = npf
+            p0 = p1
+            if p1 > pmax:
+                pmax = p1
         if c > mixingtime:
-            t = randomlist[c-mixingtime-1]
             if t < exp(p1-p0):
                 Chain.Chain.append(savepar(npf, pf0, plist))
-                pf = npf
-                p0 = p1
-                if p1 > pmax:
-                    pmax = p1
-                    #bestpar['BEST'] = [npf.__dict__[p][0] for p in plist] + [ npf.chisq]
-                    #pickle.dump(bestpar, open('%s/bestpar.p' % cwd, 'wb', 0), protocol=2)
             else:
                 Chain.Chain.append(savepar(pf, pf0, plist))
         if c % (100+(seed%100)) == 0:
@@ -234,25 +255,8 @@ if __name__ == '__main__':
     chisq, dof = tempofit('mcmc.par', toafile = toafile, pulsefile = pulsefile)
     #pf.tempofit(TOAfile(toafile), pulsefile = pulsefile)
     smallestchisq = chisq
-    plist = [x for x in pf.manifest if x in pf.parameters.keys() if not x.startswith('DMX') and not x.startswith('JUMP')] 
-    cols = []
-    for par in plist:
-        if par in ['RAJ', 'DECJ', 'RA', 'DEC']:
-            col = pyfits.Column(name=par, format='D', array=[0.])
-        elif par in pf.LongParameters:
-            col = pyfits.Column(name=par, format='D', array=[0.])
-        else:
-            col = pyfits.Column(name=par, format='D', array=[float(pf.__dict__[par][0])])
-        cols.append(col)
-    cols.append(pyfits.Column(name='chisq', format='D', array=[chisq]))
-    newtbl = pyfits.new_table(cols)
-    newhdr = newtbl.header
-    for par in [p for p in plist if p in ['RAJ', 'DECJ', 'RA', 'DEC'] or p in pf.LongParameters]:
-        newhdr.set(par , str(pf.__dict__[par][0]))
-    newhdr.set('SPCPAR', '|'.join(pf.LongParameters))
-
+    initfitsfile(pf)
     PSRname = pf.PSR
-    newtbl.writeto(PSRname+'.mcmc')
 
     def save_chain(chain):
         ff = fitsio.FITS(PSRname+'.mcmc', 'rw')
