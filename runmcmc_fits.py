@@ -3,7 +3,7 @@ from datatools.tempo import tempofit, tempo2fit, touchparfile, uniquename, PARfi
 from numpy.random import normal , uniform ,seed
 import numpy as np
 import time
-from multiprocessing import Pool, Process, Manager, JoinableQueue
+from multiprocessing import Pool, Process, Manager, JoinableQueue, Value
 import os,sys
 import pyfits
 import fitsio
@@ -12,6 +12,7 @@ import cPickle as pickle
 import os,sys
 from tempfile import mkdtemp
 from decimal import *
+from copy import deepcopy
 
 
 def randomnew(pf, stepsize): #special for 1713
@@ -47,8 +48,7 @@ def probcal(pf):
         #return 0
     chisq, dof = tempofit(parfile, toafile = toafile, pulsefile = pulsefile)
     pf.chisq = chisq
-    #print dof, chisq
-    if chisq < smallestchisq: smallestchisq = chisq
+    #if chisq < smallestchisq: smallestchisq = chisq
     try:
         #return exp((smallestchisq - chisq)/2.) #Ingrid/Paul?
         return (smallestchisq - chisq)/2. #Ingrid/Paul?
@@ -79,7 +79,15 @@ def initfitsfile(pf):
         newhdr.set(par , str(pf.__dict__[par][0]))
     newhdr.set('SPCPAR', '|'.join(pf.LongParameters))
     PSRname = pf.PSR
-    newtbl.writeto(PSRname+'.mcmc')
+    try:
+        newtbl.writeto(PSRname+'.mcmc')
+    except IOError:
+        print 'file %s already exist, would you like to append to the existing file?(y/n)' % (PSRname+'.mcmc')
+        if raw_input().lower() == 'y':
+            pass
+        else:
+            sys.exit(0)
+
 
 
 class MChain(object):
@@ -122,7 +130,7 @@ class MChain(object):
         del dit
 
 from ProgressBar import progressBar
-def mcmc(Chain, runtime, MarkovChain, mixingtime=1000, stepsize=1, seed=0 ):
+def mcmc(Chain, runtime, MarkovChain, Global, mixingtime=1000, stepsize=1, seed=0 ):
     global smallestchisq
     pb = progressBar(maxValue = runtime + mixingtime)
     cwd=os.getcwd()
@@ -138,6 +146,7 @@ def mcmc(Chain, runtime, MarkovChain, mixingtime=1000, stepsize=1, seed=0 ):
     motifile(toafile, cwd, tmpdir)
     touchparfile(parfile, NITS=1)
     pf0 = PARfile(parfile)
+    pforig = PARfile(cwd+'/'+parfile)
     pf0.LongParameters = []
     pf = pf0
     for par in [p for p in pf.parameters if not p in ['RAJ', 'DECJ']]:
@@ -151,7 +160,8 @@ def mcmc(Chain, runtime, MarkovChain, mixingtime=1000, stepsize=1, seed=0 ):
     pf0.matrix(toafile)
     pf0.freezeall()
     p0 = probcal(pf0)
-    pmax = p0
+    Global.pmax = p0
+    #print 'inital pmax', Global.pmax, p0+smallestchisq
     ThisChain = []
     c = 0
     randomlist = uniform(0,1,size=runtime+mixingtime)
@@ -177,8 +187,13 @@ def mcmc(Chain, runtime, MarkovChain, mixingtime=1000, stepsize=1, seed=0 ):
         if t < exp(p1-p0):
             pf = npf
             p0 = p1
-            if p1 > pmax:
-                pmax = p1
+            if p1 > Global.pmax:
+                Global.pmax = p1
+                npf0 = deepcopy(pf)
+                npf0.parameters = pforig.parameters
+                npf0.write(cwd+'/'+PSRname+'.mcmcbest.par')
+                print '\nnew best parfile saved to:', cwd+'/'+PSRname+'.mcmcbest.par'
+                print 'pmax:', Global.pmax, 'new chisq:', pf.chisq, 'old chisq:', smallestchisq
         if c > mixingtime:
             if t < exp(p1-p0):
                 Chain.Chain.append(savepar(npf, pf0, plist))
@@ -226,7 +241,7 @@ if __name__ == '__main__':
     parser.add_option("-n", '--pulsefile', dest="pulsefile", help="pulse number file", default=None)
     parser.add_option("-i", '--iter', type='int', nargs=1, dest='steps', help="number of steps")
     parser.add_option("-m", '--mixing', type='int', nargs=1, dest='mixing', help="number of mixing steps", default=1000)
-    parser.add_option("-p", '--parallel', type='int', nargs=1, dest='paral', help="number of parallel processes")
+    parser.add_option("-p", '--parallel', type='int', nargs=1, dest='paral', help="number of parallel processes", default=1)
     parser.add_option("-s", '--seed', type='int', nargs=1, dest='seed', default=int(os.getpid()), help="random number seed")
     parser.add_option("-z", '--stepsize', type='float', nargs=1, dest='stepsize', default=1., help="step size")
     (options, args) = parser.parse_args(args=sys.argv[1:])
@@ -261,42 +276,47 @@ if __name__ == '__main__':
     def save_chain(chain):
         ff = fitsio.FITS(PSRname+'.mcmc', 'rw')
         ff[-1].append(chain)
+        ff[-1].write_checksum()
         ff.close()
 
     def collector(queue, savecount=10):
-        counter = 0
         chain = queue.get()
+        counter = 1
         while True:
-            newchain = queue.get()# Read from the queue and do nothing
+            newchain = queue.get()
             chain = np.append(chain, newchain) 
             counter += 1
             if counter >= savecount:
                 #print 'save:', chain.shape
                 save_chain(chain)
                 chain = queue.get()
-                counter = 0
+                counter = 1
             #queue.task_done()
         save_chain(chain)
         queue.task_done()
 
     class worker(Process):
-        def __init__(self, MarkovChain,  steps, mixing, stepsize, seed ):
+        def __init__(self, MarkovChain, Global,  steps, mixing, stepsize, seed ):
             Process.__init__(self)
             self.queue = MarkovChain
             self.steps = steps
             self.mixing = mixing
             self.stepsize = stepsize
             self.seed = seed
+            self.Global=Global 
         def run(self):
             #s, MarkovChain = argv
             np.random.seed(self.seed) # assigning different initial seed for the random number generator in different threads.
             with MChain() as Chain:
-                mcmc(Chain, self.steps, self.queue , mixingtime=self.mixing, stepsize=self.stepsize, seed=self.seed)
+                mcmc(Chain, self.steps, self.queue, self.Global, mixingtime=self.mixing, stepsize=self.stepsize, seed=self.seed)
             self.queue.task_done()
             return 
 
     #MarkovChain = manager.list()
     MarkovChain = JoinableQueue()
+    manager = Manager()
+    Global  = manager.Namespace()
+    Global.pmax = 0.
     cwd = os.getcwd()
     if px == None:
         ChainSaver = Process(target=collector, args=((MarkovChain,)))
@@ -308,7 +328,7 @@ if __name__ == '__main__':
     rseed = int(os.getpid())
     if px == None:
         #run([rseed, MarkovChain])
-        w = worker(MarkovChain, steps, mixing, stepsize, rseed)
+        w = worker(MarkovChain, Global, steps, mixing, stepsize, rseed)
         w.start()
         MarkovChain.join()
         w.join()
@@ -318,7 +338,7 @@ if __name__ == '__main__':
         workforce = []
         for s in range(px):
             seed = rseed+100*s
-            workmule = worker(MarkovChain, steps, mixing, stepsize, seed)
+            workmule = worker(MarkovChain, Global, steps, mixing, stepsize, seed)
             workforce.append(workmule)
         for w in workforce:
             w.start()
