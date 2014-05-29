@@ -39,8 +39,8 @@ for p in plist:
             pf.__dict__[p][0] = ':'.join([D, str(int(H)+1), str(newS-60.)])
         pf.__dict__[p][1] = Decimal(str(err))
     elif p in LongPar:
-        pf__dict__[p][0] = hdr[p] + Decimal(str(val))
-        pf__dict__[p][1] = Decimal(str(err))
+        pf.__dict__[p][0] = Decimal(hdr[p]) + Decimal(str(val))
+        pf.__dict__[p][1] = Decimal(str(err))
     else:
         pf.__dict__[p] = [Decimal(str(val)), Decimal(str(err))]
 
@@ -52,11 +52,14 @@ if 'PAASCNODE' in plist:
     pf.parameters['KOM'] = 1
 
 if 'M2' in plist and 'SINI' in plist:
-    Pb = data['PB'] * secperday
+    if 'PB' in LongPar:
+        Pb = float(hdr['PB'])
+    else:
+        Pb = data['PB'] 
     SINI = data['SINI']
     a = data['A1']
     M2 = data['M2']
-    M1 = (Pb/2/np.pi*np.sqrt(Tsun*(M2*SINI)**3/a**3)-M2)
+    M1 = Pb*secperday/2/np.pi*np.sqrt(Tsun*(M2*SINI)**3/a**3)-M2
     KIN = np.arcsin(SINI)*180./np.pi
     for p in ['M1', 'KIN',]:
         vals = locals()[p]
