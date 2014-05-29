@@ -1,5 +1,5 @@
 from math import *
-from datatools.tempo import tempofit, tempo2fit, touchparfile, uniquename, PARfile #, model, TOAfile
+from tempo import tempofit, tempo2fit, touchparfile, uniquename, PARfile #, model, TOAfile
 from numpy.random import normal , uniform ,seed
 import numpy as np
 import time
