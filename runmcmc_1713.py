@@ -4,7 +4,7 @@ An code for running MCMC simulation to determine the confidence range of tempo p
     plotmc.py : the plotting program
     ProgressBar.py : for plotting the progress bar
 """
-from datatools.tempo import tempofit, tempo2fit, touchparfile, uniquename, PARfile #, model, TOAfile
+from tempo import tempofit, tempo2fit, touchparfile, uniquename, PARfile #, model, TOAfile
 from math import *
 from decimal import *
 import os
