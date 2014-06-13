@@ -194,12 +194,12 @@ def mcmc(Chain, runtime, MarkovChain, Global, mixingtime=1000, stepsize=1, seed=
                 npf0.write(cwd+'/'+PSRname+'.mcmcbest.par')
                 print '\nnew best parfile saved to:', cwd+'/'+PSRname+'.mcmcbest.par'
                 print 'pmax:', Global.pmax, 'new chisq:', pf.chisq, 'old chisq:', smallestchisq
-        if c > mixingtime:
+        if c-mixingtime > mixingtime:
             if t < exp(p1-p0):
                 Chain.Chain.append(savepar(npf, pf0, plist))
             else:
                 Chain.Chain.append(savepar(pf, pf0, plist))
-        if c % (100+(seed%100)) == 0:
+        if c>mixingtime and (c-mixingtime % (100+(seed%100)) == 0):
             data = np.array(Chain.Chain, dtype=dtypes)
             MarkovChain.put(data)
             Chain.Chain = []
