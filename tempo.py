@@ -1144,6 +1144,7 @@ class PARfile(object):
         self.parameters = {} # a place to hold the fit flag for each fitable parameter
         self.file = open(file, 'r')
         self.jumps = {0:Decimal(0)}
+        self.TOArangelimits = False
         self.TempoVersion = 1
         self.UseTempo2StyJumps = False
         JumpCount = 0
@@ -1177,6 +1178,7 @@ class PARfile(object):
             elif items[0] in ['START', 'FINISH']:
                 if len(items)>2 and items[2] == '1':
                     self.__dict__[items[0]] = items[1] + ' ' + '1'
+                    self.TOArangelimits = True
                 else:
                     self.__dict__[items[0]] = value
                 self.manifest.append(items[0])
@@ -1661,14 +1663,16 @@ class model(PARfile):
         if self.__dict__.has_key('DMX') or self.__dict__.has_key('DMX_0001'):
             self.dmxlist = getDMX(self)
 
-    def tempofit(self, toafile, pulsefile=None):
+    def tempofit(self, toafile, pulsefile=None, checkTOAs=False):
         """
         model.tempofit(toafile, pulsefile=None):
         use tempo to fit the parfile and toafile, specify pulsefile to use pulse number.
         """
         from numpy import mean, array, fromfile, savetxt
-        self.START = toafile.start
-        self.FINISH = toafile.end
+        if not ('START' in self.__dict__) or  type(self.START) == Decimal:
+            self.START = toafile.start
+        if not ('FINISH' in self.__dict__) or type(self.FINISH) == Decimal:
+            self.FINISH = toafile.end
         self.toafile = toafile
         if self.TempoVersion == 2:
             self.convert(1)
@@ -1719,7 +1723,35 @@ class model(PARfile):
                     pass
                 #self.parameters['DMX_' + str(key).rjust(4,'0')] = '1'
 
-        self.groups = toafile.groups.copy()
+        if not self.TOArangelimits:
+            self.groups = toafile.groups.copy()
+            toalist = toafile.toalist
+        else:
+            self.groups = {}
+            if 'START' in self.__dict__.keys():
+                if type(self.START) == str:
+                    MJDSTA = Decimal(self.START.split(' ')[0])
+                else:
+                    MJDSTA = self.toafile.start
+            if 'FINISH' in self.__dict__.keys():
+                if type(self.FINISH) == str:
+                    MJDFIN = Decimal(self.FINISH.split(' ')[0])
+                else:
+                    MJDSTA = self.toafile.end
+            toalist = []
+            i = 0
+            for toa in toafile.toalist:
+                if toa.TOA >= MJDSTA and toa.TOA <= MJDFIN:
+                    toalist.append(toa)
+                    grp = toa.flags['i']
+                    if not grp in self.groups:
+                        self.groups[grp] = [i]
+                    else:
+                        self.groups[grp].append(i)
+                    i+=1
+
+
+
         self.jumpgroups = toafile.jumpgroups.copy()
         self.write()
         #if not set(self.jumps.keys()) <= set(toafile.jumpgroups.keys()):
@@ -1790,32 +1822,34 @@ class model(PARfile):
         #npulse= readcol(tmppulsefile, 0)
         self.toafile.npulse = npulse
         if self.chisq/self.dof < 2.: #if the fit is ok, then log the pulse number
-            for i in range(len(self.toafile.toalist)):
-                t = self.toafile.toalist[i]
+            for i in range(len(toalist)):
+                t = toalist[i]
                 try:
                     t.npulse = npulse[i]
                 except IndexError:
                     print i, len(npulse)
             self.toafile.pulsefile = tmppulsefile
 
-        from datatools.MJD import MJD_to_datetime
-        from datetime import timedelta
-        bat = self.toa
-        toalist = self.toafile.toalist
-        for i in range(len(bat)):
-            toa = toalist[i]
-            if MJD_to_datetime(float(toa.TOA)) - MJD_to_datetime(bat[i])  > timedelta(seconds = 600):
-                for m in range(3,1,-1):
-                    print i-m, 'TOA', toalist[i-m].TOA, bat[i-m], (MJD_to_datetime(float(toalist[i-m].TOA)) - MJD_to_datetime(bat[i-m])).seconds, toalist[i-m].TOAsigma, self.err[i-m], toalist[i-m].flags['i'], toalist[i-m].flags['EMAX']
-                print '>', i, 'TOA', toa.TOA, bat[i], (MJD_to_datetime(float(toa.TOA)) - MJD_to_datetime(bat[i])).seconds, toa.TOAsigma, self.err[i], toalist[i].flags['i'], toalist[i].flags['EMAX']
-                print i+1, 'TOA', toalist[i+1].TOA, bat[i+1], (MJD_to_datetime(float(toalist[i+1].TOA)) - MJD_to_datetime(bat[i+1])).seconds, toalist[i+1].TOAsigma, self.err[i+1], toalist[i+1].flags['i'],toalist[i].flags['EMAX']
+        """what if I just turn of this test"""
+        if checkTOAs:
+            from datatools.MJD import MJD_to_datetime
+            from datetime import timedelta
+            bat = self.toa
+            for i in range(len(bat)):
+                toa = toalist[i]
+                if MJD_to_datetime(float(toa.TOA)) - MJD_to_datetime(bat[i])  > timedelta(seconds = 600):
+                    for m in range(3,1,-1):
+                        print i-m, 'TOA', toalist[i-m].TOA, bat[i-m], (MJD_to_datetime(float(toalist[i-m].TOA)) - MJD_to_datetime(bat[i-m])).seconds, toalist[i-m].TOAsigma, self.err[i-m], toalist[i-m].flags['i'], toalist[i-m].flags['EMAX']
+                    print '>', i, 'TOA', toa.TOA, bat[i], (MJD_to_datetime(float(toa.TOA)) - MJD_to_datetime(bat[i])).seconds, toa.TOAsigma, self.err[i], toalist[i].flags['i'], toalist[i].flags['EMAX']
+                    print i+1, 'TOA', toalist[i+1].TOA, bat[i+1], (MJD_to_datetime(float(toalist[i+1].TOA)) - MJD_to_datetime(bat[i+1])).seconds, toalist[i+1].TOAsigma, self.err[i+1], toalist[i+1].flags['i'],toalist[i].flags['EMAX']
+        """TOA test block"""
 
         for name in self.groups.keys():
             self._wrms(name)
 
 
 
-    def tempo2fit(self, toafile=None):
+    def tempo2fit(self, toafile=None, checkTOAs=False):
         """
         model.tempo2fit(toafile, pulsefile=None):
         use tempo2 to fit the parfile and toafile.
@@ -1867,7 +1901,32 @@ class model(PARfile):
                     pass
                 #self.parameters['DMX_' + str(key).rjust(4,'0')] = '1'
 
-        self.groups = toafile.groups.copy()
+        if not self.TOArangelimits:
+            self.groups = toafile.groups.copy()
+        else:
+            self.groups = {}
+            if 'START' in self.__dict__.keys():
+                if type(self.START) == str:
+                    MJDSTA = Decimal(self.START.split(' ')[0])
+                else:
+                    MJDSTA = self.toafile.start
+            if 'FINISH' in self.__dict__.keys():
+                if type(self.FINISH) == str:
+                    MJDFIN = Decimal(self.FINISH.split(' ')[0])
+                else:
+                    MJDSTA = self.toafile.end
+            toalist = []
+            i = 0
+            for toa in toafile.toalist:
+                if toa.TOA >= MJDSTA and toa.TOA <= MJDFIN:
+                    toalist.append(toa)
+                    grp = toa.flags['i']
+                    if not grp in self.groups:
+                        self.groups[grp] = [i]
+                    else:
+                        self.groups[grp].append(i)
+                    i+=1
+
         self.jumpgroups = toafile.jumpgroups.copy()
         self.jumpgroups.update({0:Decimal(0)}) #set the 0 group to match the jumps initialized in PARfile
         self.write()
@@ -1921,17 +1980,17 @@ class model(PARfile):
         #self.res = readcol('resid.dat', 2)
         #self.err = readcol('resid.dat', 3)*1.e-6
         #self.postphase = readcol('resid.dat', 4)
-        from datatools.MJD import MJD_to_datetime
-        from datetime import timedelta
-        bat = self.toa
-        toalist = self.toafile.toalist
-        for i in range(len(bat)):
-            toa = toalist[i]
-            if MJD_to_datetime(float(toa.TOA)) - MJD_to_datetime(bat[i])  > timedelta(seconds = 600):
-                for m in range(30,1,-1):
-                    print i-m, 'TOA', toalist[i-m].TOA, bat[i-m], (MJD_to_datetime(float(toalist[i-m].TOA)) - MJD_to_datetime(bat[i-m])).seconds, toalist[i-m].TOAsigma, self.err[i-m], toalist[i-m].flags['i']
-                print '>', i, 'TOA', toa.TOA, bat[i], (MJD_to_datetime(float(toa.TOA)) - MJD_to_datetime(bat[i])).seconds, toa.TOAsigma, self.err[i], toalist[i].flags['i']
-                print i+1, 'TOA', toalist[i+1].TOA, bat[i+1], (MJD_to_datetime(float(toalist[i+1].TOA)) - MJD_to_datetime(bat[i+1])).seconds, toalist[i+1].TOAsigma, self.err[i+1], toalist[i+1].flags['i']
+        if checkTOAs:
+            from datatools.MJD import MJD_to_datetime
+            from datetime import timedelta
+            bat = self.toa
+            for i in range(len(bat)):
+                toa = toalist[i]
+                if MJD_to_datetime(float(toa.TOA)) - MJD_to_datetime(bat[i])  > timedelta(seconds = 600):
+                    for m in range(30,1,-1):
+                        print i-m, 'TOA', toalist[i-m].TOA, bat[i-m], (MJD_to_datetime(float(toalist[i-m].TOA)) - MJD_to_datetime(bat[i-m])).seconds, toalist[i-m].TOAsigma, self.err[i-m], toalist[i-m].flags['i']
+                    print '>', i, 'TOA', toa.TOA, bat[i], (MJD_to_datetime(float(toa.TOA)) - MJD_to_datetime(bat[i])).seconds, toa.TOAsigma, self.err[i], toalist[i].flags['i']
+                    print i+1, 'TOA', toalist[i+1].TOA, bat[i+1], (MJD_to_datetime(float(toalist[i+1].TOA)) - MJD_to_datetime(bat[i+1])).seconds, toalist[i+1].TOAsigma, self.err[i+1], toalist[i+1].flags['i']
 
         for name in self.groups.keys():
             self._wrms(name)
@@ -1999,7 +2058,7 @@ class model(PARfile):
         """ploting routine, 
         possible X-axis: number, date, mjd, ophase, freq 
         possilbe Y-axis: err, res, averes, prefit, DMX 
-            """
+        """
         c = colors
         from pylab import subplot, xlabel, ylabel, legend
         from datatools.MJD import MJD_to_datetime
@@ -2028,6 +2087,14 @@ class model(PARfile):
             return float(dt.strftime('%j')) + float(dt.strftime('%H'))/24
         if ax == None:
             ax = subplot(111)
+        if type(self.START) == str:
+            MJDSTA = Decimal(self.START.split(' ')[0])
+        else:
+            MJDSTA = Decimal(self.START)
+        if type(self.FINISH) == str:
+            MJDFIN = Decimal(self.FINISH.split(' ')[0])
+        else:
+            MJDFIN = Decimal(self.FINISH)
         if Ylabel == "DMX":
             from matplotlib.ticker import FormatStrFormatter
             majorFormatter = FormatStrFormatter('%5.0f')
@@ -2036,6 +2103,8 @@ class model(PARfile):
             DMXRErr = []
             DMXvalue = []
             DMXerror = []
+            #DMXkeys = [k for k in DMX.keys()]
+            DMXkeys = [k for k in DMX.keys() if (DMX[k] >= MJDSTA and DMX[k] <= MJDFIN)]
             for i in DMX.keys():
                 if Xlabel == "date":
                     DMXR.append(MJD_to_datetime(float(DMXR1[i]+DMXR2[i])/2))
@@ -2077,15 +2146,18 @@ class model(PARfile):
         for grp in groups:
             Yerr = None
             if Ylabel == "averes":
+                idx = [i for i,t in enumerate(self.avetoa[grp]) if (t >= MJDSTA and t <= MJDFIN)]
                 if Xlabel == "date":
-                    X = [MJD_to_datetime(t) for t in self.avetoa[grp]]
+                    #X = [MJD_to_datetime(t) for t in self.avetoa[grp]]
+                    X = [MJD_to_datetime(self.avetoa[grp][i]) for i in idx]
                 elif Xlabel == 'year':
-                    X = [dayofyear(MJD_to_datetime(t)) for t in self.avetoa[grp]]
+                    #X = [dayofyear(MJD_to_datetime(t)) for t in self.avetoa[grp]]
+                    X = [dayofyear(MJD_to_datetime(self.avetoa[grp][i])) for i in idx]
                 elif Xlabel == 'mjd':
                     from matplotlib.ticker import FormatStrFormatter
                     majorFormatter = FormatStrFormatter('%5.0f')
                     ax.xaxis.set_major_formatter(majorFormatter)
-                    X = [float(t) for t in self.avetoa[grp]]
+                    X = [float(self.avetoa[grp][i]) for i in idx]
                 elif Xlabel == "ophase":
                     raise "Not allowed to plot averes on phase"
                 elif Xlabel == "freq" or Xlabel == "frequency":
@@ -2096,10 +2168,11 @@ class model(PARfile):
                     raise "Not allowed to plot averes vs phase"
                 else:
                     raise "X label %s not allowed" % Xlabel
-                Y = self.averes[grp]
-                Yerr = self.aveerr[grp]
+                Y = [ self.averes[grp][i] for i in idx]
+                Yerr = [self.aveerr[grp][i] for i in idx]
             else:
-                idx = self.groups[grp]
+                #idx = self.groups[grp]
+                idx = [j for j in self.groups[grp] if (self.toa[j] >= float(MJDSTA) and self.toa[j] <= float(MJDFIN)) ]
                 if Ylabel == "res" or Ylabel == "residual":
                     Y = self.res[idx]
                     Yerr = self.err[idx]
@@ -2161,7 +2234,7 @@ class model(PARfile):
         """
         Performing the daily-average, 
         arguments: groups = [list of groups one wants to average] (Default all groups)
-                   lapse=0.5 (the window size for daily averaging, default to half day)
+        lapse=0.5 (the window size for daily averaging, default to half day)
         """
         from numpy import mean, sum, array
         toafile = self.toafile
