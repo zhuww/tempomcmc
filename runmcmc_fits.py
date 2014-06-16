@@ -98,9 +98,9 @@ class MChain(object):
     def __exit__(self, exc_type, exc_value, exc_tb):
         os.chdir(self.cwd)
 
-        try:
-            os.remove(self.cwd+'/MChain.p'+str(os.getpid()))
-        except:pass
+        #try:
+            #os.remove(self.cwd+'/MChain.p'+str(os.getpid()))
+        #except:pass
         if exc_type is KeyboardInterrupt:
             print '\nManually Stopped\n'
             return True
@@ -194,7 +194,7 @@ def mcmc(Chain, runtime, MarkovChain, Global, mixingtime=1000, stepsize=1, seed=
                 npf0.write(cwd+'/'+PSRname+'.mcmcbest.par')
                 print '\nnew best parfile saved to:', cwd+'/'+PSRname+'.mcmcbest.par'
                 print 'pmax:', Global.pmax, 'new chisq:', pf.chisq, 'old chisq:', smallestchisq
-        if c-mixingtime > mixingtime:
+        if c > mixingtime:
             if t < exp(p1-p0):
                 Chain.Chain.append(savepar(npf, pf0, plist))
             else:
