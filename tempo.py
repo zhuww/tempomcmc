@@ -3,6 +3,8 @@
 #import numpy, os
 #from numpy import mean, std, var, array, double, angle
 from math import *
+from numpy.core.records import fromfile
+#from numpy import fromfile
 #from fileio import *
 #from SaveLoadable import MetaSaveLoader
 #from decimal import *
@@ -777,7 +779,6 @@ class TOAfile(object):
 
 #from datatools.timing import ephemeris
 def residual(file = 'resid2.tmp'):
-    from numpy import fromfile
     data = fromfile(file='resid2.tmp', dtype=[
         ('N',           'i4'),
         ('toa',         'f8'),
@@ -1308,13 +1309,14 @@ class PARfile(object):
                 if not re.match(key, p) == None:
                     self.parameters[p] = '1'
 
-    def matrix(self, timfile, TempoVersion=1):
+    def matrix(self, timfile, TempoVersion=1, RunTempo=True):
         if self.BINARY == 'DDS':
             paramap['    s'] = 'SHAPMAX'
         if TempoVersion == 1:
-            from numpy.core.records import fromfile
-            os.system('tempo -j -f %s %s > tmplog' % (self.parfile, timfile))
-            bpf = PARfile(self.psrname + '.par')
+            if RunTempo:
+                os.system('tempo -j -f %s %s > tmplog' % (self.parfile, timfile))
+            #bpf = PARfile(self.psrname + '.par')
+            bpf = self
             par = []
             self.err = []
             cov = []
@@ -1371,7 +1373,8 @@ class PARfile(object):
             #print self.Nfajc
         elif TempoVersion == 2:
             self.err = []
-            os.system('tempo2 -f %s %s -tempo1 -newpar -output matrix > tempo2matrix.tmp' % (self.parfile, timfile))
+            if RunTempo:
+                os.system('tempo2 -f %s %s -tempo1 -newpar -output matrix > tempo2matrix.tmp' % (self.parfile, timfile))
             bpf = PARfile('new.par')
             with open('tempo2matrix.tmp' , 'r') as f:
                 lines = f.readlines()
